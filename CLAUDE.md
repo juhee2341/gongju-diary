@@ -23,3 +23,11 @@ React Native(Expo) 교환일기 앱. 하루 한 편 짧은 일기를 쓰고, 그
 - DB 변경은 `supabase/migrations`의 마이그레이션 파일로만 한다
 - 이슈·커밋·주석에 화면 ID를 붙인다(예: `[C4] 잠긴 카드`)
 - 모든 도구와 서비스는 무료 범위 안에서 쓴다(`docs/spec.md` '무료 운영')
+
+## 협업 방식 (혼자라도 팀처럼)
+
+- 로드맵 단계·버그는 GitHub 이슈로 관리한다(라벨: roadmap, server, app, chore, verification, bug, web-only)
+- 이슈마다 브랜치를 만든다: `feat/step-3-entries`, `fix/terms-precheck`, `chore/...`
+- 커밋 메시지·PR은 한국어, 화면 ID를 붙인다. PR 본문에 `Closes #이슈`
+- 머지 전 확인: CI(타입 체크·테스트·번들) 통과, 새 마이그레이션은 dev에 적용 후 `pnpm test:live` 통과
+- 단계가 끝나면 README '진행 상황'과 docs/tech-validation.md를 갱신한다
