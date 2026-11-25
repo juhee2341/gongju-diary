@@ -26,6 +26,27 @@ async function setJSON(key: string, value: unknown): Promise<void> {
   await AsyncStorage.setItem(key, JSON.stringify(value));
 }
 
+/** [D1] 임시저장(일기장 id + 날짜 단위). 사진은 기기 안의 처리된 파일 경로 */
+export type EntryDraft = {
+  emotion: string | null;
+  content: string;
+  photos: Array<{ full: string; thumb: string }>;
+  savedAt: string;
+};
+const draftKey = (diaryId: string, date: string) => `gongju.draft.${diaryId}.${date}`;
+
+export const drafts = {
+  get: (diaryId: string, date: string) => getJSON<EntryDraft>(draftKey(diaryId, date)),
+  set: (diaryId: string, date: string, d: EntryDraft) => setJSON(draftKey(diaryId, date), d),
+  remove: async (diaryId: string, date: string) => {
+    try {
+      await AsyncStorage.removeItem(draftKey(diaryId, date));
+    } catch {
+      // 기기 저장소 오류는 무시(다음 임시저장에서 덮어씀)
+    }
+  },
+};
+
 export const deviceStore = {
   /** [A3] 온보딩 완료 기록 */
   isOnboardingDone: async () => (await getJSON<boolean>(KEYS.onboardingDone)) === true,

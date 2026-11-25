@@ -19,6 +19,7 @@ function RootStack() {
         <Stack.Screen name="profile/new" options={{ gestureEnabled: false }} />
         <Stack.Screen name="(tabs)" options={{ gestureEnabled: false }} />
         <Stack.Screen name="diary/new" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="entry/write" options={{ presentation: 'modal', gestureEnabled: false }} />
       </Stack>
       <OfflineBanner />
     </>

@@ -87,8 +87,8 @@ pnpm test      # 날짜·글자 수 단위 테스트 + 마이그레이션/RLS �
 ## 폴더 구조
 
 ```
-app/                 화면(Expo Router) — index(A1), onboarding(A3), profile/new(A4), diary/new(B2),
-                     (tabs)/home(B1)·home/diary/[id](C1)·home/diary/[id]/settings(E1), notifications, settings
+app/                 화면(Expo Router) — index(A1), onboarding(A3), profile/new(A4), diary/new(B2), entry/write(D1),
+                     (tabs)/home(B1)·home/diary/[id](C1)·home/diary/[id]/settings(E1)·home/entry/[id](D2), notifications, settings
 src/features/        기능별 로직 (auth, profile, …)
 src/lib/             supabase, query, date, text, image, device
 src/constants/       policy.ts(정책 상수), emotions, reactions, prompts, avatars, app
@@ -102,5 +102,6 @@ supabase/            migrations/, tests/, config.jsonc
 - [x] 1단계 기반 — Expo 프로젝트, Supabase 연결, 익명 로그인, 테마 토큰, A1·A3·A4 (기술 검증은 [진행 중](docs/tech-validation.md))
 - [x] 2단계 일기장 — B1 홈 카드·고정·검색, B2 만들기·초대 공유, E1 이름·커버·늦게 쓰기 기간·초대 코드 재발급·함께 쓰기 전환·알림 끄기
   - 일기 집계(오늘 작성 리본, 오늘 N명, 최근 감정)는 3단계, 참여 요청·멤버 관리는 5단계, 나가기는 9단계에서 연결
-- [ ] 3단계 일기 작성 (D1, D2)
+- [x] 3단계 일기 작성 — D1 작성·수정(감정, 사진 3장·썸네일, 300자, 오늘의 질문, 날짜 선택, 5초 임시저장), D2 상세(사진 슬라이드, 배지, 수정·삭제), B1 리본·오늘 N명·최근 감정
+  - 다른 멤버 일기 열람은 6단계(#5), 저장 후 C4 이동은 4단계(#3), 댓글·리액션은 7단계(#6)
 - [ ] 4~11단계

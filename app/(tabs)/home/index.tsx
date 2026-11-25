@@ -118,7 +118,7 @@ export default function Home() {
             diary={item}
             onPress={() => openDiary(item)}
             onLongPress={() => setMenuFor(item)}
-            onRibbonPress={() => toast(ko.home.writeComingSoon)}
+            onRibbonPress={() => router.push({ pathname: '/entry/write', params: { diaryId: item.id } })}
           />
         )}
         ListEmptyComponent={

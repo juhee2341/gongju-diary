@@ -181,3 +181,9 @@ export const HOME_AVATAR_SIZE = 40;
 
 /** [B1] 카드 멤버 아바타 지름 */
 export const CARD_AVATAR_SIZE = 24;
+
+/** [D1, D2] 사진 서명 URL 유효 시간(초) */
+export const PHOTO_URL_SECONDS = 60 * 60;
+
+/** [D1] save_entry가 받아들이는 기기·서버 날짜 차이(일). 서버 save_entry와 같은 값 */
+export const DEVICE_DATE_TOLERANCE_DAYS = 1;
