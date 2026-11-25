@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
   addDays,
+  addMonths,
+  formatWeekRange,
+  longestStreak,
+  monthGrid,
+  startOfWeek,
+  weekdayOrder,
   formatListDate,
   isAutoPublic,
   isLate,
@@ -51,5 +57,39 @@ describe('formatListDate', () => {
   it('같은 해/다른 해', () => {
     expect(formatListDate('2026-11-19', '2026-11-25')).toBe('11월 19일 (목)');
     expect(formatListDate('2025-11-19', '2026-11-25')).toBe('2025년 11월 19일 (수)');
+  });
+});
+
+
+describe('주·월 계산 — C1·C2', () => {
+  it('startOfWeek: 월요일 시작/일요일 시작', () => {
+    // 2026-11-25 수요일
+    expect(startOfWeek('2026-11-25', 1)).toBe('2026-11-23');
+    expect(startOfWeek('2026-11-25', 0)).toBe('2026-11-22');
+    expect(startOfWeek('2026-11-23', 1)).toBe('2026-11-23');
+    expect(startOfWeek('2026-11-22', 1)).toBe('2026-11-16');
+  });
+  it('주 범위 표기', () => {
+    expect(formatWeekRange('2026-11-23')).toBe('11.23 ~ 11.29');
+  });
+  it('월 그리드: 2026년 11월(일요일 1일), 월요일 시작이면 6줄', () => {
+    const g = monthGrid('2026-11', 1);
+    expect(g).toHaveLength(6);
+    expect(g[0]).toEqual([null, null, null, null, null, null, '2026-11-01']);
+    expect(g[5]![0]).toBe('2026-11-30');
+    expect(monthGrid('2026-11', 0)).toHaveLength(5);
+  });
+  it('요일 머리글과 월 이동', () => {
+    expect(weekdayOrder(1)).toEqual([1, 2, 3, 4, 5, 6, 0]);
+    expect(addMonths('2026-12', 1)).toBe('2027-01');
+    expect(addMonths('2026-01', -1)).toBe('2025-12');
+  });
+});
+
+describe('longestStreak — C3', () => {
+  it('끊김 없이 이어진 가장 긴 구간, 중복·순서 무관', () => {
+    expect(longestStreak([])).toBe(0);
+    expect(longestStreak(['2026-11-03', '2026-11-01', '2026-11-02', '2026-11-05'])).toBe(3);
+    expect(longestStreak(['2026-12-31', '2027-01-01', '2027-01-01'])).toBe(2);
   });
 });

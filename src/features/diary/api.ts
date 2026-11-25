@@ -15,6 +15,8 @@ export type MemberPreview = {
   avatar_emoji: string;
   avatar_path: string | null;
   role: 'owner' | 'member';
+  /** 참여일(멤버 현지 날짜) */
+  joined_date: string;
 };
 
 export type MyDiary = {

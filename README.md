@@ -88,7 +88,7 @@ pnpm test      # 날짜·글자 수 단위 테스트 + 마이그레이션/RLS �
 
 ```
 app/                 화면(Expo Router) — index(A1), onboarding(A3), profile/new(A4), diary/new(B2), entry/write(D1),
-                     (tabs)/home(B1)·home/diary/[id](C1)·home/diary/[id]/settings(E1)·home/entry/[id](D2), notifications, settings
+                     (tabs)/home(B1)·home/diary/[id](C1~C3)·…/day/[date](C4)·…/settings(E1)·home/entry/[id](D2), notifications, settings
 src/features/        기능별 로직 (auth, profile, …)
 src/lib/             supabase, query, date, text, image, device
 src/constants/       policy.ts(정책 상수), emotions, reactions, prompts, avatars, app
@@ -104,4 +104,6 @@ supabase/            migrations/, tests/, config.jsonc
   - 일기 집계(오늘 작성 리본, 오늘 N명, 최근 감정)는 3단계, 참여 요청·멤버 관리는 5단계, 나가기는 9단계에서 연결
 - [x] 3단계 일기 작성 — D1 작성·수정(감정, 사진 3장·썸네일, 300자, 오늘의 질문, 날짜 선택, 5초 임시저장), D2 상세(사진 슬라이드, 배지, 수정·삭제), B1 리본·오늘 N명·최근 감정
   - 다른 멤버 일기 열람은 6단계(#5), 저장 후 C4 이동은 4단계(#3), 댓글·리액션은 7단계(#6)
-- [ ] 4~11단계
+- [x] 4단계 보관 화면 — C1 주간(멤버×날짜 상태), C2 월간(감정 아이콘·멤버 수·이번 달 감정 막대), C3 연간(요약·감정 색 점·최장 연속), C4 하루 모아보기(열린/잠긴 카드, 아직 안 쓴 공주들), 마지막 탭 기억
+  - 열림 판정은 `entry_viewable` 한 곳에 모았고 6단계(#5)에서 열람 규칙으로 교체
+- [ ] 5~11단계

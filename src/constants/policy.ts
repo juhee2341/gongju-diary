@@ -187,3 +187,18 @@ export const PHOTO_URL_SECONDS = 60 * 60;
 
 /** [D1] save_entry가 받아들이는 기기·서버 날짜 차이(일). 서버 save_entry와 같은 값 */
 export const DEVICE_DATE_TOLERANCE_DAYS = 1;
+
+/** [C1] 날짜 행에 보이는 멤버 아바타 수(넘치면 "+N", 전체는 C4) */
+export const WEEK_MAX_AVATARS = 5;
+
+/** [C1] 날짜 행 아바타 지름 */
+export const WEEK_AVATAR_SIZE = 28;
+
+/** [C4] 카드 아바타 지름 */
+export const DAY_AVATAR_SIZE = 36;
+
+/** [C4] 카드 본문 미리보기 줄 수 */
+export const DAY_CARD_LINES = 3;
+
+/** [C3] 미니 달력 감정 점 지름 */
+export const YEAR_DOT_SIZE = 6;

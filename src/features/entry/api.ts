@@ -69,24 +69,6 @@ export function useMyEntryDates(diaryId: string, userId: string | null) {
   });
 }
 
-/** [C1 임시] 이 일기장의 내 일기 최근순 — 4단계 보관 화면 전까지 C1에서 사용 */
-export function useMyEntries(diaryId: string, userId: string | null) {
-  return useQuery({
-    queryKey: entryKeys.mine(diaryId),
-    enabled: !!userId,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('entries')
-        .select('*')
-        .eq('diary_id', diaryId)
-        .eq('author_id', userId!)
-        .order('entry_date', { ascending: false });
-      if (error) throw new AppError(toErrorCode(error));
-      return (data ?? []) as Entry[];
-    },
-  });
-}
-
 /** 비공개 버킷이라 서명 URL로 표시. 목록엔 썸네일, 원본은 D2에서만 */
 export function usePhotoUrls(paths: string[], thumb: boolean) {
   const targets = thumb ? paths.map(thumbPath) : paths;
@@ -213,6 +195,7 @@ export function useInvalidateEntries() {
       qc.invalidateQueries({ queryKey: queryKeys.myDiaries }),
       qc.invalidateQueries({ queryKey: entryKeys.myDates(diaryId) }),
       qc.invalidateQueries({ queryKey: entryKeys.mine(diaryId) }),
+      qc.invalidateQueries({ queryKey: ['archive'] }),
       entryId ? qc.invalidateQueries({ queryKey: entryKeys.one(entryId) }) : Promise.resolve(),
     ]);
 }
