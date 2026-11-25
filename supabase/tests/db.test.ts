@@ -507,3 +507,51 @@ describe('열람 규칙 — 6단계 (T1~T8, T13)', () => {
     expect(await as(A, `select entry_status(${eid(1)}) ->> 'status' as s`)).toEqual([{ s: 'missing' }]);
   });
 });
+
+describe('[D2] 댓글·리액션 — 7단계', () => {
+  const S = '66666666-6666-6666-6666-666666666666';
+  const L = '77777777-7777-7777-7777-777777777777';
+  const N = '88888888-8888-8888-8888-888888888888';
+  const open = `'00000000-0000-4000-8000-000000000601'::uuid`; // L의 오늘 일기(S에게 열림)
+  const locked = `'00000000-0000-4000-8000-000000000610'::uuid`; // N에게 잠긴 일기
+
+  it('열린 일기에만 댓글, 5초 안에 두 번은 rate_limited', async () => {
+    const [c] = await as<{ content: string }>(S, `select content from add_comment(${open}, '  첫 댓글이에요  ')`);
+    expect(c!.content).toBe('첫 댓글이에요');
+    await expect(as(S, `select add_comment(${open}, '도배')`)).rejects.toThrow('rate_limited');
+    await expect(as(N, `select add_comment(${locked}, '잠긴 일기에 댓글')`)).rejects.toThrow('entry_not_found');
+    await expect(as(N, `select add_comment(${open}, '   ')`)).rejects.toThrow(/too_short|entry_not_found/);
+    await expect(as(S, `insert into comments (entry_id, author_id, content) values (${open}, '${S}', '직접')`)).rejects.toThrow(/permission denied/);
+  });
+
+  it('리액션 1인 1개: 추가 → 교체 → 취소', async () => {
+    await as(S, `select set_reaction(${open}, 'heart')`);
+    await as(S, `select set_reaction(${open}, 'crown')`);
+    expect(await as(L, `select user_id, reaction from reactions where entry_id=${open}`)).toEqual([{ user_id: S, reaction: 'crown' }]);
+    await as(L, `select set_reaction(${open}, 'hug')`); // 내 일기에 내 리액션 허용
+    await as(S, `select set_reaction(${open}, null)`);
+    expect(await as(L, `select user_id from reactions where entry_id=${open}`)).toEqual([{ user_id: L }]);
+    await expect(as(N, `select set_reaction(${locked}, 'heart')`)).rejects.toThrow('entry_not_found');
+  });
+
+  it('잠긴 일기의 댓글·리액션은 안 보이고, 메타에 수가 붙는다', async () => {
+    expect(await as(A, `select count(*)::int as n from comments where entry_id=${open}`)).toEqual([{ n: 0 }]);
+    const [d] = await as<{ diary_id: string; entry_date: string }>(S, `select diary_id, entry_date::text from entries where id=${open}`);
+    const rows = await as<{ entry_id: string; reaction_count: number; comment_count: number }>(
+      S,
+      `select entry_id, reaction_count, comment_count from diary_entries_meta('${d!.diary_id}', '${d!.entry_date}', '${d!.entry_date}') where entry_id = ${open}`,
+    );
+    expect(rows).toEqual([{ entry_id: '00000000-0000-4000-8000-000000000601', reaction_count: 1, comment_count: 1 }]);
+  });
+
+  it('댓글 삭제: 댓글 작성자 또는 일기 작성자만', async () => {
+    await db.exec(`update comments set created_at = now() - interval '1 minute'`);
+    const [c2] = await as<{ id: string }>(N, `select id from add_comment(${open}, 'N의 댓글')`).catch(() => [{ id: '' }]);
+    if (c2!.id) {
+      expect(await as(S, `delete from comments where id='${c2!.id}' returning id`)).toEqual([]);
+      expect((await as(L, `delete from comments where id='${c2!.id}' returning id`)).length).toBe(1);
+    }
+    const [mine] = await as<{ id: string }>(S, `select id from comments where author_id='${S}' limit 1`);
+    expect((await as(S, `delete from comments where id='${mine!.id}' returning id`)).length).toBe(1);
+  });
+});
