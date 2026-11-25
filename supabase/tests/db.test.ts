@@ -37,7 +37,8 @@ beforeAll(async () => {
     create function auth.uid() returns uuid language sql stable
       as $$ select nullif(current_setting('request.uid', true), '')::uuid $$;
     create table storage.buckets (id text primary key, name text, public boolean);
-    create table storage.objects (id uuid primary key default gen_random_uuid(), bucket_id text, name text);
+    create table storage.objects (id uuid primary key default gen_random_uuid(), bucket_id text, name text,
+      owner_id text default nullif(current_setting('request.uid', true), ''));
     alter table storage.objects enable row level security;
     grant usage on schema public, auth, storage to authenticated, anon;
     alter default privileges in schema public grant all on tables to anon, authenticated;
@@ -186,5 +187,87 @@ describe('avatars 버킷', () => {
     await expect(as(A, `insert into storage.objects (bucket_id,name) values ('avatars','${B}.jpg')`)).rejects.toThrow(
       /row-level security/,
     );
+  });
+});
+
+describe('[D1] save_entry — 3단계', () => {
+  let diary = ''; // A의 함께 쓰기 일기장(기간 7일)
+  const today = `public.user_today('${A}')`;
+  const id = (n: number) => `'00000000-0000-4000-8000-00000000000${n}'::uuid`;
+  const save = (n: number, date: string, content: string, photos = `'{}'::text[]`, deviceToday = today) =>
+    `select id, is_late, edited from save_entry(${id(n)}, '${diary}'::uuid, ${date}, 'happy', '${content}', ${photos}, ${deviceToday})`;
+
+  beforeAll(async () => {
+    const [d] = await as<{ id: string }>(A, `select id from diaries where is_shared and late_window_days = 7`);
+    diary = d!.id;
+    // 참여일을 과거로 돌려 늦게 쓰기 범위를 확인할 수 있게 한다(테스트 전용)
+    await db.exec(`update diary_members set joined_date = ${today} - 30 where diary_id = '${diary}'`);
+  });
+
+  it('오늘 일기 저장 + 열림 기록 + 오늘 작성 리본', async () => {
+    expect(await as(A, save(1, today, '오늘은 좋은 날'))).toEqual([
+      { id: '00000000-0000-4000-8000-000000000001', is_late: false, edited: false },
+    ]);
+    expect(await as(A, `select count(*)::int as n from entry_unlocks where diary_id='${diary}'`)).toEqual([{ n: 1 }]);
+    const [row] = await as<{ wrote_today: boolean; today_count: number; recent_emotions: string[] }>(
+      A,
+      `select wrote_today, today_count, recent_emotions from my_diaries() where id='${diary}'`,
+    );
+    expect(row).toEqual({ wrote_today: true, today_count: 1, recent_emotions: ['happy'] });
+  });
+
+  it('T15 같은 날짜 두 번 → entry_exists', async () => {
+    await expect(as(A, save(2, today, '다른 기기에서 저장'))).rejects.toThrow('entry_exists');
+  });
+
+  it('T17 사진 없이 4자 → too_short', async () => {
+    await expect(as(A, save(3, `${today} - 1`, '네글자다'))).rejects.toThrow('too_short');
+  });
+
+  it('T4 기간 안 늦은 일기, T5 기간 밖 거부, 미래 거부', async () => {
+    expect(await as(A, save(3, `${today} - 7`, '일주일 전 일기'))).toEqual([
+      { id: '00000000-0000-4000-8000-000000000003', is_late: true, edited: false },
+    ]);
+    await expect(as(A, save(4, `${today} - 8`, '여드레 전 일기'))).rejects.toThrow('date_out_of_range');
+    await expect(as(A, save(4, `${today} + 1`, '내일 일기예요'))).rejects.toThrow('date_out_of_range');
+  });
+
+  it('기기 날짜가 이틀 이상 다르면 device_date_invalid', async () => {
+    await expect(as(A, save(4, today, '기기 날짜 이상', `'{}'::text[]`, `${today} + 2`))).rejects.toThrow('device_date_invalid');
+  });
+
+  it('수정은 edited=true, 날짜 유지', async () => {
+    expect(await as(A, save(1, `${today} - 1`, '고쳐 쓴 오늘 일기'))).toEqual([
+      { id: '00000000-0000-4000-8000-000000000001', is_late: false, edited: true },
+    ]);
+    expect(await as(A, `select entry_date = ${today} as same from entries where id=${id(1)}`)).toEqual([{ same: true }]);
+  });
+
+  it('사진만 있는 일기, 사진 경로는 {diary}/{entry}/n.jpg만', async () => {
+    const good = `array['${diary}/00000000-0000-4000-8000-000000000005/1.jpg']`;
+    expect((await as(A, save(5, `${today} - 2`, '', good))).length).toBe(1);
+    const bad = `array['${diary}/other/1.jpg']`;
+    await expect(as(A, save(6, `${today} - 3`, '', bad))).rejects.toThrow('entry_not_found');
+  });
+
+  it('남의 일기는 읽기·수정·삭제 불가, 멤버 아니면 저장 불가', async () => {
+    expect(await as(B, `select count(*)::int as n from entries`)).toEqual([{ n: 0 }]);
+    await expect(as(B, save(1, today, '남의 일기 고치기'))).rejects.toThrow('not_member');
+    expect(await as(B, `delete from entries where id=${id(1)} returning id`)).toEqual([]);
+    await expect(as(A, `insert into entries (id, diary_id, author_id, entry_date, emotion, content) values (gen_random_uuid(), '${diary}', '${A}', ${today} - 4, 'sad', '직접 넣기')`)).rejects.toThrow(/permission denied/);
+  });
+
+  it('T3 삭제해도 열림은 유지, 같은 날짜 다시 쓰기 가능', async () => {
+    expect((await as(A, `delete from entries where id=${id(1)} returning id`)).length).toBe(1);
+    expect(await as(A, `select count(*)::int as n from entry_unlocks where diary_id='${diary}' and entry_date=${today}`)).toEqual([{ n: 1 }]);
+    expect((await as(A, save(7, today, '다시 쓴 오늘 일기'))).length).toBe(1);
+  });
+
+  it('entry-photos: 멤버만 업로드, 일기가 생기면 작성자만', async () => {
+    const path = (n: number) => `${diary}/00000000-0000-4000-8000-00000000000${n}/1.jpg`;
+    expect(await as(A, `insert into storage.objects (bucket_id,name) values ('entry-photos','${path(9)}') returning name`)).toHaveLength(1);
+    await expect(as(B, `insert into storage.objects (bucket_id,name) values ('entry-photos','${path(8)}')`)).rejects.toThrow(/row-level security/);
+    await expect(as(A, `insert into storage.objects (bucket_id,name) values ('entry-photos','${diary}/x/1.jpg')`)).rejects.toThrow(/row-level security/);
+    expect(await as(B, `select count(*)::int as n from storage.objects where bucket_id='entry-photos'`)).toEqual([{ n: 0 }]);
   });
 });

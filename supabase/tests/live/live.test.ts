@@ -118,3 +118,72 @@ describe('2단계 [B1][B2][E1]', () => {
     expect(ordered[0]).toMatchObject({ id: solo, pinned: true });
   });
 });
+
+describe('3단계 [D1][D2]', () => {
+  let diary = '';
+  let today = '';
+  const entryId = crypto.randomUUID();
+  const path = (n: number, thumb = false) => `${diary}/${entryId}/${n}${thumb ? '_thumb' : ''}.jpg`;
+
+  beforeAll(async () => {
+    const list = (await a.rpc('my_diaries')).data as Array<{ id: string; is_shared: boolean }>;
+    diary = list.find((d) => d.is_shared)!.id;
+    const { data } = await a.from('user_settings').select('timezone').single();
+    today = new Intl.DateTimeFormat('en-CA', { timeZone: data!.timezone }).format(new Date());
+  });
+
+  it('사진 업로드(원본+썸네일) → save_entry → 리본·오늘 N명', async () => {
+    for (const p of [path(1), path(1, true)]) {
+      expect((await a.storage.from('entry-photos').upload(p, JPG, { contentType: 'image/jpeg', upsert: true })).error).toBeNull();
+    }
+    // 다른 사람은 남의 일기 경로에 못 올림(멤버 아님)
+    const other = await b.storage.from('entry-photos').upload(`${diary}/${entryId}/2.jpg`, JPG, { contentType: 'image/jpeg' });
+    expect(other.error?.message).toMatch(/row-level security/);
+
+    const r = await a.rpc('save_entry', {
+      p_id: entryId,
+      p_diary: diary,
+      p_date: today,
+      p_emotion: 'love',
+      p_content: '실서버에서 쓴 첫 일기',
+      p_photo_paths: [path(1)],
+      p_device_today: today,
+    });
+    expect(r.error).toBeNull();
+    expect(r.data).toMatchObject({ id: entryId, is_late: false, edited: false, photo_paths: [path(1)] });
+
+    const d = ((await a.rpc('my_diaries')).data as Array<{ id: string; wrote_today: boolean; today_count: number }>).find(
+      (x) => x.id === diary,
+    )!;
+    expect(d).toMatchObject({ wrote_today: true, today_count: 1 });
+  });
+
+  it('T15 같은 날짜 다시 → entry_exists, T17 4자 → too_short', async () => {
+    const dup = await a.rpc('save_entry', {
+      p_id: crypto.randomUUID(), p_diary: diary, p_date: today, p_emotion: 'sad', p_content: '두 번째 저장 시도', p_photo_paths: [], p_device_today: today,
+    });
+    expect(dup.error?.message).toBe('entry_exists');
+    const short = await a.rpc('save_entry', {
+      p_id: crypto.randomUUID(), p_diary: diary, p_date: today, p_emotion: 'sad', p_content: '네글자다', p_photo_paths: [], p_device_today: today,
+    });
+    expect(short.error?.message).toBe('too_short');
+  });
+
+  it('작성자는 사진 서명 URL을 받고, 다른 사람은 일기·사진을 못 봄', async () => {
+    const own = await a.storage.from('entry-photos').createSignedUrl(path(1, true), 60);
+    expect(own.error).toBeNull();
+    expect((await b.from('entries').select('id').eq('id', entryId)).data).toEqual([]);
+    expect((await b.storage.from('entry-photos').createSignedUrl(path(1), 60)).error).not.toBeNull();
+  });
+
+  it('삭제 → 같은 날짜 다시 쓰기 가능, 열림 기록 유지', async () => {
+    expect((await a.from('entries').delete({ count: 'exact' }).eq('id', entryId)).count).toBe(1);
+    await a.storage.from('entry-photos').remove([path(1), path(1, true)]);
+    const unlocks = await a.from('entry_unlocks').select('entry_date').eq('diary_id', diary);
+    expect(unlocks.data).toEqual([{ entry_date: today }]);
+    const again = await a.rpc('save_entry', {
+      p_id: crypto.randomUUID(), p_diary: diary, p_date: today, p_emotion: 'calm', p_content: '지우고 다시 쓴 일기', p_photo_paths: [], p_device_today: today,
+    });
+    expect(again.error).toBeNull();
+  });
+});
