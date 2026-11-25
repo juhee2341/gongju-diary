@@ -12,7 +12,7 @@ Supabase dev 프로젝트(`gongju-diary-dev`, 서울)는 만들었고, 실기기
 | 4 | 재인코딩한 JPEG에 위치 정보가 남지 않는지 | 대기 | `src/lib/image`가 `expo-image-manipulator`로 JPEG 재인코딩하고, picker에 `exif: false` | 위치 정보가 있는 사진을 실기기에서 골라 처리 → 결과 파일을 PC로 옮겨 `exiftool`로 GPS 태그 확인(iOS·안드로이드 각각) |
 | 5 | Hermes에서 Intl.Segmenter | 대기(대비 완료) | `src/lib/text`가 `Intl.Segmenter`가 있으면 쓰고, 없으면 자체 분리기로 대체. 대체 분리기는 ZWJ 이모지·피부색·국기·키캡·결합 문자 테스트 통과 | 개발 빌드에서 `hasIntlSegmenter` 값을 출력. false면 대체 분리기를 유지하고, 한계(드문 결합 문자)는 서버 상한으로 방어 |
 | 6 | pg_cron 30분 → Edge Function → Expo Push | 대기 | 8단계 범위 | dev 프로젝트에서 `pg_cron` + `pg_net`으로 Edge Function 호출 → 실기기 푸시 수신 |
-| 7 | GitHub Actions 핑으로 일시정지 방지 | 준비 완료 | `.github/workflows/keepalive.yml`(3일마다 REST 핑, 수동 실행 가능) | 저장소 Secrets에 `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY` 등록 → 7일 넘게 앱 요청 없이 프로젝트가 활성 상태인지 확인 |
+| 7 | GitHub Actions 핑으로 일시정지 방지 | 진행 중 | `.github/workflows/keepalive.yml`(3일마다 REST 핑). 저장소 Secrets 등록 완료, 2026-11-25 수동 실행 성공 | 7일 넘게 앱 요청 없이 프로젝트가 활성 상태로 남는지 확인(2026-12-02 이후) |
 
 ## 기획 반영이 필요할 수 있는 점
 
