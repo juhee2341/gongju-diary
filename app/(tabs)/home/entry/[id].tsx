@@ -1,7 +1,6 @@
 /**
  * [D2] 일기 상세 — 3단계: 사진 슬라이드, 감정·배지, 본문, 수정·삭제
- * TODO(6단계 #5) 같은 날 다른 열린 일기 아바타 줄·좌우 넘기기(남의 일기가 열려야 의미 있음)
- * TODO(6단계 #5) 잠긴 일기 직접 진입 시 C4로 대체 이동
+ * 같은 날 열린 일기 아바타 줄(혼자 쓰기는 숨김), 잠긴 일기로 직접 들어오면 C4로 대체 이동
  * TODO(7단계 #6) 리액션 바, 댓글
  * TODO(10단계 #9) 신고·차단 메뉴
  */
@@ -23,10 +22,12 @@ import { BottomSheet } from '@/components/BottomSheet';
 import { SheetRow } from '@/components/SheetRow';
 import { useToast } from '@/components/Toast';
 import { EMOTION_ICONS } from '@/constants/emotions';
-import { MIN_TOUCH } from '@/constants/policy';
+import { CARD_AVATAR_SIZE, MIN_TOUCH } from '@/constants/policy';
 import { emotionLabels, errorCopy, fill, ko } from '@/copy/ko';
 import { useDiary } from '@/features/diary/api';
-import { deleteEntry, useEntry, useInvalidateEntries, usePhotoUrls } from '@/features/entry/api';
+import { indexMeta, useEntriesMeta } from '@/features/archive/api';
+import { MemberAvatar } from '@/features/diary/MemberAvatar';
+import { deleteEntry, useEntry, useEntryStatus, useInvalidateEntries, usePhotoUrls } from '@/features/entry/api';
 import { useAvatarUri } from '@/features/profile/useMyProfile';
 import { useMyUserId } from '@/hooks/useMyUserId';
 import { useToday } from '@/hooks/useToday';
@@ -57,13 +58,23 @@ export default function EntryDetail() {
   const [deleting, setDeleting] = useState(false);
   const isMine = !!e && e.author_id === userId;
 
-  // 공통 규칙: 일기가 없으면 "삭제된 일기예요" → 이전 화면
+  // 못 읽었으면 잠김인지 삭제인지 확인: 잠김 → C4(잠긴 카드), 삭제 → "삭제된 일기예요" + 이전 화면
+  const status = useEntryStatus(id, entry.isSuccess && !entry.data);
   useEffect(() => {
-    if (entry.isSuccess && !entry.data) {
+    const s = status.data;
+    if (!s) return;
+    if (s.status === 'locked' && s.diary_id && s.entry_date) {
+      router.replace({ pathname: '/home/diary/[id]/day/[date]', params: { id: s.diary_id, date: s.entry_date } });
+    } else if (s.status === 'missing') {
       toast(errorCopy.entry_not_found);
       router.back();
     }
-  }, [entry.isSuccess, entry.data, toast]);
+  }, [status.data, toast]);
+
+  // 같은 날 열린 일기(아바타 줄)
+  const sameDay = useEntriesMeta(e?.diary_id ?? '', e?.entry_date ?? '', e?.entry_date ?? '');
+  const { find } = indexMeta(e ? sameDay.data : undefined);
+  const openMembers = (diary?.is_shared ? diary.members : []).filter((m) => find(e?.entry_date ?? '', m.user_id)?.viewable);
 
   if (!e) return <View style={{ flex: 1, backgroundColor: colors.background }} />;
 
@@ -115,6 +126,28 @@ export default function EntryDetail() {
             ) : null,
         }}
       />
+
+      {openMembers.length > 1 && (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.avatarRow}>
+          {openMembers.map((m) => {
+            const r = find(e.entry_date, m.user_id)!;
+            const current = r.entry_id === e.id;
+            return (
+              <Pressable
+                key={m.user_id}
+                accessibilityRole="button"
+                accessibilityLabel={m.nickname}
+                accessibilityState={{ selected: current }}
+                disabled={current}
+                onPress={() => router.setParams({ id: r.entry_id! })}
+                style={[styles.avatarItem, { borderColor: current ? colors.primary : 'transparent', opacity: current ? 1 : 0.6 }]}
+              >
+                <MemberAvatar member={m} size={CARD_AVATAR_SIZE + spacing.md} />
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      )}
 
       {e.photo_paths.length > 0 && (
         <View>
@@ -187,6 +220,8 @@ function Badge({ label, color }: { label: string; color: string }) {
 
 const styles = StyleSheet.create({
   content: { padding: spacing.xl, gap: spacing.lg },
+  avatarRow: { gap: spacing.sm },
+  avatarItem: { borderWidth: 2, borderRadius: 999, padding: 2, minWidth: MIN_TOUCH, minHeight: MIN_TOUCH, alignItems: 'center', justifyContent: 'center' },
   header: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   author: { fontSize: fontSize.body, fontWeight: '700' },
   date: { fontSize: fontSize.caption },

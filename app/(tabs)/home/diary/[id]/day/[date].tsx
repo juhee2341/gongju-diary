@@ -2,18 +2,18 @@
  * [C4] 하루 모아보기
  * 배너(내가 안 썼고 작성 가능) → 내 카드 → 멤버 카드(열림/잠김) → "아직 안 쓴 공주들"
  * 카드 순서: 나 → 주인 → 참여순(my_diaries members 순서)
- * TODO(6단계 #5) 저장 직후 잠긴 카드가 차례로 열리는 애니메이션(T2)
  * TODO(7단계 #6) 카드 하단 리액션 수·댓글 수
  */
 import { Image } from 'expo-image';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import * as Haptics from 'expo-haptics';
+import { useEffect, useRef, useState } from 'react';
+import { Animated, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { BottomSheet } from '@/components/BottomSheet';
 import { Button } from '@/components/Button';
 import { useToast } from '@/components/Toast';
 import { EMOTION_ICONS } from '@/constants/emotions';
-import { CARD_AVATAR_SIZE, DAY_AVATAR_SIZE, DAY_CARD_LINES, MIN_TOUCH } from '@/constants/policy';
+import { CARD_AVATAR_SIZE, DAY_AVATAR_SIZE, DAY_CARD_LINES, MIN_TOUCH, UNLOCK_DURATION_MS, UNLOCK_STAGGER_MS } from '@/constants/policy';
 import { emotionLabels, ko } from '@/copy/ko';
 import { indexMeta, useEntriesByIds, useEntriesMeta } from '@/features/archive/api';
 import { PeriodBar } from '@/features/archive/PeriodBar';
@@ -43,9 +43,13 @@ export default function DayView() {
   const openIds = (meta.data ?? []).filter((r) => r.viewable && r.entry_id).map((r) => r.entry_id!);
   const entries = useEntriesByIds(openIds);
 
+  // 저장 직후: 남의 열린 카드가 차례로 열리는 애니메이션 + 토스트 + 진동(T2). 혼자 쓰기는 없음
+  const animate = !!justSaved && !!diary?.is_shared;
   useEffect(() => {
-    if (justSaved && diary?.is_shared) toast(ko.day.opened);
-  }, [justSaved, diary?.is_shared, toast]);
+    if (!animate) return;
+    toast(ko.day.opened);
+    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
+  }, [animate, toast]);
 
   if (!diary || !myId) return <View style={{ flex: 1, backgroundColor: colors.background }} />;
 
@@ -85,11 +89,13 @@ export default function DayView() {
 
         {wrote.length === 0 && <Text style={[styles.hint, { color: colors.textSub }]}>{ko.day.allRested}</Text>}
 
-        {wrote.map((m) => {
+        {wrote.map((m, i) => {
           const r = find(date, m.user_id)!;
           const e = entries.data?.find((x) => x.id === r.entry_id);
           return r.viewable && r.entry_id ? (
-            <OpenCard key={m.user_id} member={m} entry={e} metaEmotion={r.emotion} onPress={() => router.push({ pathname: '/home/entry/[id]', params: { id: r.entry_id! } })} />
+            <UnlockIn key={m.user_id} index={i} active={animate && m.user_id !== myId}>
+              <OpenCard member={m} entry={e} metaEmotion={r.emotion} onPress={() => router.push({ pathname: '/home/entry/[id]', params: { id: r.entry_id! } })} />
+            </UnlockIn>
           ) : (
             <LockedCard key={m.user_id} member={m} onPress={() => setLockedFor(m)} />
           );
@@ -121,6 +127,20 @@ export default function DayView() {
         )}
       </BottomSheet>
     </View>
+  );
+}
+
+/** 잠긴 카드가 열리듯 흐림→선명, 살짝 커지며 나타남 */
+function UnlockIn({ index, active, children }: { index: number; active: boolean; children: React.ReactNode }) {
+  const v = useRef(new Animated.Value(active ? 0 : 1)).current;
+  useEffect(() => {
+    if (!active) return;
+    Animated.timing(v, { toValue: 1, duration: UNLOCK_DURATION_MS, delay: index * UNLOCK_STAGGER_MS, useNativeDriver: true }).start();
+  }, [active, index, v]);
+  return (
+    <Animated.View style={{ opacity: v.interpolate({ inputRange: [0, 1], outputRange: [0.35, 1] }), transform: [{ scale: v.interpolate({ inputRange: [0, 1], outputRange: [0.96, 1] }) }] }}>
+      {children}
+    </Animated.View>
   );
 }
 

@@ -219,16 +219,49 @@ describe('5단계 [B3][B4][E2]', () => {
     expect(mine.find((x) => x.id === diary)?.role).toBe('member');
   });
 
-  it('멤버가 쓴 일기는 주인에게 잠김(작성자·날짜만), 내보내기하면 사라짐', async () => {
+  it('멤버가 쓴 일기가 주인의 보관 화면에 잡히고, 내보내기하면 사라짐', async () => {
     const { data } = await c.from('user_settings').select('timezone').single();
     const today = new Intl.DateTimeFormat('en-CA', { timeZone: data!.timezone }).format(new Date());
     expect((await c.rpc('save_entry', { p_id: crypto.randomUUID(), p_diary: diary, p_date: today, p_emotion: 'sad', p_content: 'C의 비밀 일기', p_photo_paths: [], p_device_today: today })).error).toBeNull();
-    const meta = (await a.rpc('diary_entries_meta', { p_diary: diary, p_from: today, p_to: today })).data as Array<{ author_id: string; viewable: boolean; emotion: string | null }>;
-    expect(meta.find((m) => m.author_id === cId)).toMatchObject({ viewable: false, emotion: null });
+    const meta = (await a.rpc('diary_entries_meta', { p_diary: diary, p_from: today, p_to: today })).data as Array<{ author_id: string }>;
+    expect(meta.some((m) => m.author_id === cId)).toBe(true);
 
     expect((await a.rpc('remove_member', { p_diary: diary, p_user: cId })).error).toBeNull();
     const after = (await a.rpc('diary_entries_meta', { p_diary: diary, p_from: today, p_to: today })).data as Array<{ author_id: string }>;
     expect(after.some((m) => m.author_id === cId)).toBe(false);
     expect(((await c.rpc('my_diaries')).data as Array<{ id: string }>).some((x) => x.id === diary)).toBe(false);
+  });
+});
+
+describe('6단계 열람 규칙 — T1·T2 실서버(Storage 포함, 기술 검증 3번)', () => {
+  it('친구 일기와 사진은 내가 그날 쓰기 전엔 잠기고, 쓰면 열린다', async () => {
+    const d = (await a.rpc('create_diary', { p_name: '열람 규칙', p_cover_color: 'cover_4', p_is_shared: true, p_late_window_days: 3 })).data as string;
+    const code = ((await a.rpc('my_diaries')).data as Array<{ id: string; invite_code: string }>).find((x) => x.id === d)!.invite_code;
+    const f = mk();
+    await f.auth.signInAnonymously();
+    await f.rpc('complete_profile', profileArgs('친구', 'Asia/Seoul'));
+    await f.rpc('find_diary_by_code', { p_code: code });
+    await f.rpc('request_join', { p_code: code });
+    const req = ((await a.rpc('diary_join_requests', { p_diary: d })).data as Array<{ id: string }>)[0]!;
+    await a.rpc('decide_request', { p_request: req.id, p_approve: true });
+
+    const tz = (await a.from('user_settings').select('timezone').single()).data!.timezone as string;
+    const today = new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(new Date());
+    const fe = crypto.randomUUID();
+    const photo = `${d}/${fe}/1.jpg`;
+    await f.storage.from('entry-photos').upload(photo, JPG, { contentType: 'image/jpeg' });
+    await f.storage.from('entry-photos').upload(photo.replace('.jpg', '_thumb.jpg'), JPG, { contentType: 'image/jpeg' });
+    expect((await f.rpc('save_entry', { p_id: fe, p_diary: d, p_date: today, p_emotion: 'love', p_content: '친구의 오늘', p_photo_paths: [photo], p_device_today: today })).error).toBeNull();
+
+    // T1: 잠김 — 본문도 사진도 안 됨, entry_status는 locked
+    expect((await a.from('entries').select('id').eq('id', fe)).data).toEqual([]);
+    expect((await a.storage.from('entry-photos').createSignedUrl(photo, 60)).error).not.toBeNull();
+    expect(((await a.rpc('entry_status', { p_entry: fe })).data as { status: string }).status).toBe('locked');
+
+    // T2: 내가 쓰면 열림
+    await a.rpc('save_entry', { p_id: crypto.randomUUID(), p_diary: d, p_date: today, p_emotion: 'happy', p_content: '나도 오늘 썼어요', p_photo_paths: [], p_device_today: today });
+    expect((await a.from('entries').select('content').eq('id', fe)).data).toEqual([{ content: '친구의 오늘' }]);
+    expect((await a.storage.from('entry-photos').createSignedUrl(photo, 60)).error).toBeNull();
+    expect(((await a.rpc('entry_status', { p_entry: fe })).data as { status: string }).status).toBe('viewable');
   });
 });

@@ -52,6 +52,16 @@ export function useEntry(id: string | undefined) {
   });
 }
 
+/** [D2] 직접 진입 시 열림/잠김/삭제 구분 */
+export type EntryStatus = { status: 'viewable' | 'locked' | 'missing'; diary_id?: string; entry_date?: string };
+export function useEntryStatus(id: string | undefined, enabled: boolean) {
+  return useQuery({
+    queryKey: ['entry', 'status', id ?? ''],
+    enabled: !!id && enabled,
+    queryFn: () => rpc<EntryStatus>('entry_status', { p_entry: id! }),
+  });
+}
+
 /** [D1] 이 일기장에서 내가 이미 쓴 날짜 */
 export function useMyEntryDates(diaryId: string, userId: string | null) {
   return useQuery({

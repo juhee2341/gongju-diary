@@ -282,11 +282,12 @@ describe('[C1~C4] diary_entries_meta — 4단계', () => {
     await db.exec(`insert into diary_members (diary_id, user_id, role, joined_date) values ('${diary}', '${B}', 'member', ${today} - 30)`);
     await as(
       B,
-      `select save_entry('00000000-0000-4000-8000-0000000000b1'::uuid, '${diary}'::uuid, public.user_today('${B}'), 'sad', 'B가 쓴 비밀 일기', '{}'::text[], public.user_today('${B}'))`,
+      // A가 아직 쓰지 않은 날짜(어제) — 6단계 규칙에서도 잠김이어야 한다
+      `select save_entry('00000000-0000-4000-8000-0000000000b1'::uuid, '${diary}'::uuid, public.user_today('${B}') - 1, 'sad', 'B가 쓴 비밀 일기', '{}'::text[], public.user_today('${B}'))`,
     );
   });
 
-  it('내 일기는 감정까지, 남의 일기는 작성자·날짜만(잠김)', async () => {
+  it('내 일기는 감정까지, 내가 안 쓴 날의 남의 일기는 작성자·날짜만(잠김)', async () => {
     const rows = await as<{ author_id: string; viewable: boolean; entry_id: string | null; emotion: string | null }>(
       A,
       `select author_id, viewable, entry_id, emotion from diary_entries_meta('${diary}', ${today} - 10, ${today} + 1) order by author_id`,
@@ -409,5 +410,100 @@ describe('[B3][B4][E2] 공유 — 5단계', () => {
     await as(C, `select request_join('${code}')`);
     const reqs = await as<{ nickname: string; former_member: boolean }>(A, `select nickname, former_member from diary_join_requests('${diary}') order by nickname`);
     expect(reqs).toContainEqual({ nickname: '공주C', former_member: true });
+  });
+});
+
+describe('열람 규칙 — 6단계 (T1~T8, T13)', () => {
+  const S = '66666666-6666-6666-6666-666666666666'; // 서울
+  const L = '77777777-7777-7777-7777-777777777777'; // LA
+  const N = '88888888-8888-8888-8888-888888888888'; // 새로 참여
+  let diary = '';
+  const tS = `public.user_today('${S}')`;
+  const tL = `public.user_today('${L}')`;
+  const eid = (n: number) => `'00000000-0000-4000-8000-0000000006${String(n).padStart(2, '0')}'::uuid`;
+  const write = (uid: string, n: number, date: string, today: string) =>
+    as(uid, `select save_entry(${eid(n)}, '${diary}'::uuid, ${date}, 'happy', '열람 규칙 테스트 일기', '{}'::text[], ${today})`);
+  const canSee = async (uid: string, n: number) =>
+    (await as<{ n: number }>(uid, `select count(*)::int as n from entries where id=${eid(n)}`))[0]!.n === 1;
+
+  beforeAll(async () => {
+    await db.exec(`insert into auth.users values ('${S}'), ('${L}'), ('${N}')`);
+    await as(S, completeProfile('서울공주', 'Asia/Seoul'));
+    await as(L, completeProfile('엘에이공주', 'America/Los_Angeles'));
+    await as(N, completeProfile('새공주', 'Asia/Seoul'));
+    const [d] = await as<{ id: string }>(S, `select create_diary('열람 규칙', 'cover_2', true, 3::smallint) as id`);
+    diary = d!.id;
+    await db.exec(`update diaries set created_date = ${tS} - 40 where id='${diary}'`);
+    await db.exec(`update diary_members set joined_date = ${tS} - 40 where diary_id='${diary}'`);
+    await db.exec(`insert into diary_members (diary_id, user_id, role, joined_date) values ('${diary}', '${L}', 'member', ${tL} - 40)`);
+  });
+
+  it('T1 내가 쓰기 전 남의 오늘 일기는 잠김(본문·사진 모두)', async () => {
+    await write(L, 1, tL, tL);
+    expect(await canSee(S, 1)).toBe(false);
+    expect(await as(S, `select can_view_entry(${eid(1)}) as ok`)).toEqual([{ ok: false }]);
+  });
+
+  it('T13 각자 현지 날짜: 서울 S가 자기 오늘을 쓰면, LA의 같은 날짜 일기만 열린다', async () => {
+    await write(S, 2, tS, tS);
+    const [same] = await as<{ same: boolean }>(S, `select ${tS} = ${tL} as same`);
+    expect(await canSee(S, 1)).toBe(same!.same);
+  });
+
+  it('T2 같은 날짜를 쓰면 열림', async () => {
+    await write(S, 3, tL, tS).catch(() => undefined); // 이미 같은 날짜면 entry_exists
+    expect(await canSee(S, 1)).toBe(true);
+    expect(await as(S, `select entry_status(${eid(1)}) ->> 'status' as s`)).toEqual([{ s: 'viewable' }]);
+  });
+
+  it('T3 내 일기를 지워도 열림 유지', async () => {
+    await as(S, `delete from entries where author_id='${S}' and diary_id='${diary}'`);
+    expect(await canSee(S, 1)).toBe(true);
+  });
+
+  it('T4 기간 안 늦은 일기 → 그날 열림 / T5 기간 밖 날짜는 이미 자동 공개', async () => {
+    await write(L, 4, `${tL} - 2`, tL);
+    await write(L, 5, `${tL} - 4`, tL).catch(() => undefined); // L도 기간 밖이면 못 씀
+    await db.exec(`insert into entries (id, diary_id, author_id, entry_date, emotion, content) values (${eid(6)}, '${diary}', '${L}', ${tS} - 5, 'calm', '오래된 일기')`);
+    expect(await canSee(S, 4)).toBe(false);
+    await write(S, 7, `${tS} - 2`, tS);
+    const [same] = await as<{ same: boolean }>(S, `select ${tS} = ${tL} as same`);
+    if (same!.same) expect(await canSee(S, 4)).toBe(true);
+    expect(await canSee(S, 6)).toBe(true); // 5일 전 > 기간 3일 → 자동 공개
+    await expect(write(S, 8, `${tS} - 4`, tS)).rejects.toThrow('date_out_of_range');
+  });
+
+  it('T6 기간 7일 → 1일: 2일 전보다 오래된 일기 즉시 공개', async () => {
+    await as(S, `select set_late_window('${diary}', 7::smallint)`);
+    await db.exec(`insert into entries (id, diary_id, author_id, entry_date, emotion, content) values (${eid(9)}, '${diary}', '${L}', ${tS} - 3, 'calm', '사흘 전 일기')`);
+    // 3→7로 늘릴 때 열림 기록이 생기는 건 4일 전까지라, 3일 전은 아직 잠김
+    expect(await canSee(S, 9)).toBe(false);
+    await as(S, `select set_late_window('${diary}', 1::smallint)`);
+    expect(await canSee(S, 9)).toBe(true);
+  });
+
+  it('T7 기간 1일 → 7일: 이미 공개된 날이 다시 잠기지 않음', async () => {
+    await as(S, `select set_late_window('${diary}', 7::smallint)`);
+    expect(await canSee(S, 9)).toBe(true);
+    expect(await canSee(S, 6)).toBe(true);
+  });
+
+  it('T8 오늘 새로 참여: 어제까지는 열림, 오늘은 잠김', async () => {
+    await db.exec(`insert into diary_members (diary_id, user_id, role, joined_date) values ('${diary}', '${N}', 'member', public.user_today('${N}'))`);
+    await db.exec(`insert into entries (id, diary_id, author_id, entry_date, emotion, content) values (${eid(10)}, '${diary}', '${L}', public.user_today('${N}'), 'love', 'N이 참여한 날의 L 일기')
+                   on conflict do nothing`);
+    expect(await canSee(N, 9)).toBe(true);
+    expect(await canSee(N, 6)).toBe(true);
+    const [todayRow] = await as<{ n: number }>(N, `select count(*)::int as n from entries where diary_id='${diary}' and entry_date = public.user_today('${N}') and author_id <> '${N}'`);
+    expect(todayRow!.n).toBe(0);
+  });
+
+  it('멤버가 아니면 아무것도 못 봄, 사진도 같은 판정', async () => {
+    expect(await canSee(A, 1)).toBe(false);
+    const path = `${diary}/00000000-0000-4000-8000-000000000601/1.jpg`;
+    await db.exec(`insert into storage.objects (bucket_id, name, owner_id) values ('entry-photos', '${path}', '${L}')`);
+    expect(await as(S, `select count(*)::int as n from storage.objects where name='${path}'`)).toEqual([{ n: 1 }]);
+    expect(await as(A, `select count(*)::int as n from storage.objects where name='${path}'`)).toEqual([{ n: 0 }]);
+    expect(await as(A, `select entry_status(${eid(1)}) ->> 'status' as s`)).toEqual([{ s: 'missing' }]);
   });
 });
