@@ -214,11 +214,39 @@ export const ko = {
     leaveComingSoon: '일기장 나가기는 다음 단계에서 열려요',
   },
   diaryMain: {
-    // [C1] 4단계에서 채움
-    placeholder: '주간 보기는 다음 단계에서 만들어요',
+    // [C1~C3]
     settings: '일기장 설정',
     writeToday: '오늘 일기 쓰기',
-    myEntries: '내가 쓴 일기',
+    viewToday: '오늘 일기 보기',
+    tabs: { week: '주', month: '월', year: '년' },
+    today: '오늘',
+    prev: '이전',
+    next: '다음',
+    canStillWrite: '아직 쓸 수 있어요',
+    members: '멤버 보기',
+    statusLocked: '잠긴 일기',
+    statusNotWritten: '아직 안 씀',
+    dayRow: '{날짜}, {상태}',
+    monthEmotions: '이번 달 내 감정',
+    monthQuiet: '이 달은 조용했어요',
+    monthCount: '{N}명 씀',
+    yearSummary: '올해 쓴 일기 {N}편 · 가장 많았던 감정 {감정} · 최장 연속 {S}일',
+    yearEmpty: '올해 첫 일기를 기다리고 있어요',
+    monthTitle: '{M}월',
+    timesCount: '{N}번',
+  },
+  day: {
+    // [C4]
+    prevDay: '전날',
+    nextDay: '다음 날',
+    writeBanner: '이날 일기를 쓰면 모두의 일기가 열려요',
+    write: '쓰기',
+    noRecord: '이날은 내 기록이 없어요',
+    allRested: '이날은 모두 쉬었어요',
+    notYet: '아직 안 쓴 공주들',
+    locked: '내 일기 쓰면 열려요',
+    lockedSheet: '이날 일기를 쓰면 바로 볼 수 있어요',
+    opened: '오늘 일기가 열렸어요',
   },
   write: {
     // [D1]

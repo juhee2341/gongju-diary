@@ -271,3 +271,45 @@ describe('[D1] save_entry — 3단계', () => {
     expect(await as(B, `select count(*)::int as n from storage.objects where bucket_id='entry-photos'`)).toEqual([{ n: 0 }]);
   });
 });
+
+describe('[C1~C4] diary_entries_meta — 4단계', () => {
+  let diary = '';
+  const today = `public.user_today('${A}')`;
+  beforeAll(async () => {
+    const [d] = await as<{ id: string }>(A, `select id from diaries where is_shared and late_window_days = 7`);
+    diary = d!.id;
+    // 참여 기능(5단계) 전이라 테스트에서 직접 멤버로 넣는다
+    await db.exec(`insert into diary_members (diary_id, user_id, role, joined_date) values ('${diary}', '${B}', 'member', ${today} - 30)`);
+    await as(
+      B,
+      `select save_entry('00000000-0000-4000-8000-0000000000b1'::uuid, '${diary}'::uuid, public.user_today('${B}'), 'sad', 'B가 쓴 비밀 일기', '{}'::text[], public.user_today('${B}'))`,
+    );
+  });
+
+  it('내 일기는 감정까지, 남의 일기는 작성자·날짜만(잠김)', async () => {
+    const rows = await as<{ author_id: string; viewable: boolean; entry_id: string | null; emotion: string | null }>(
+      A,
+      `select author_id, viewable, entry_id, emotion from diary_entries_meta('${diary}', ${today} - 10, ${today} + 1) order by author_id`,
+    );
+    const mine = rows.filter((r) => r.author_id === A);
+    const theirs = rows.filter((r) => r.author_id === B);
+    expect(mine.length).toBeGreaterThan(0);
+    expect(mine.every((r) => r.viewable && r.entry_id && r.emotion)).toBe(true);
+    expect(theirs).toEqual([{ author_id: B, viewable: false, entry_id: null, emotion: null }]);
+  });
+
+  it('멤버 아니면 not_member, 기간이 400일 넘으면 거부', async () => {
+    const [solo] = await as<{ id: string }>(A, `select id from diaries where late_window_days = 3`);
+    await expect(as(B, `select * from diary_entries_meta('${solo!.id}', ${today} - 1, ${today})`)).rejects.toThrow('not_member');
+    await expect(as(A, `select * from diary_entries_meta('${diary}', ${today} - 500, ${today})`)).rejects.toThrow('date_out_of_range');
+  });
+
+  it('my_diaries 멤버 순서: 나 → 주인 → 참여순, 참여일 포함', async () => {
+    const [row] = await as<{ members: Array<{ user_id: string; joined_date: string }> }>(
+      B,
+      `select members from my_diaries() where id='${diary}'`,
+    );
+    expect(row!.members.map((m) => m.user_id)).toEqual([B, A]);
+    expect(row!.members[0]!.joined_date).toBeTruthy();
+  });
+});

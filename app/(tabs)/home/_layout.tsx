@@ -18,6 +18,7 @@ export default function HomeStack() {
       <Stack.Screen name="index" options={{ headerShown: false }} />
       <Stack.Screen name="diary/[id]/index" options={{ title: '' }} />
       <Stack.Screen name="diary/[id]/settings" options={{ title: ko.diarySettings.title }} />
+      <Stack.Screen name="diary/[id]/day/[date]" options={{ title: '' }} />
       <Stack.Screen name="entry/[id]" options={{ title: '' }} />
     </Stack>
   );

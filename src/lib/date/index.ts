@@ -84,6 +84,85 @@ export function formatListDate(d: LocalDate, todayDate: LocalDate): string {
   return parse(d).locale('ko').format(sameYear ? 'M월 D일 (dd)' : 'YYYY년 M월 D일 (dd)');
 }
 
+/** 0=일 … 6=토 */
+export function dayOfWeek(d: LocalDate): number {
+  return parse(d).day();
+}
+
+/** [C1] d가 속한 주의 첫날(weekStart: 1=월, 0=일) */
+export function startOfWeek(d: LocalDate, weekStart: 0 | 1): LocalDate {
+  const back = (dayOfWeek(d) - weekStart + 7) % 7;
+  return addDays(d, -back);
+}
+
+/** [C1] 주의 7일 */
+export function weekDays(start: LocalDate): LocalDate[] {
+  return Array.from({ length: 7 }, (_, i) => addDays(start, i));
+}
+
+/** "YYYY-MM" */
+export type YearMonth = string;
+
+export function yearMonthOf(d: LocalDate): YearMonth {
+  return d.slice(0, 7);
+}
+
+export function addMonths(ym: YearMonth, n: number): YearMonth {
+  return dayjs.utc(`${ym}-01`, FMT).add(n, 'month').format('YYYY-MM');
+}
+
+export function lastDayOfMonth(ym: YearMonth): LocalDate {
+  return dayjs.utc(`${ym}-01`, FMT).endOf('month').format(FMT);
+}
+
+/** [C2] 달력 그리드: 주 단위 배열, 그 달이 아닌 칸은 null. 필요한 주 수만큼(4~6줄) */
+export function monthGrid(ym: YearMonth, weekStart: 0 | 1): Array<Array<LocalDate | null>> {
+  const first = `${ym}-01`;
+  const last = lastDayOfMonth(ym);
+  const weeks: Array<Array<LocalDate | null>> = [];
+  let cursor = startOfWeek(first, weekStart);
+  while (cursor <= last) {
+    weeks.push(weekDays(cursor).map((d) => (yearMonthOf(d) === ym ? d : null)));
+    cursor = addDays(cursor, 7);
+  }
+  return weeks;
+}
+
+/** [C2] 요일 머리글 순서(0=일 … 6=토) */
+export function weekdayOrder(weekStart: 0 | 1): number[] {
+  return Array.from({ length: 7 }, (_, i) => (weekStart + i) % 7);
+}
+
+const WEEKDAY_KO = ['일', '월', '화', '수', '목', '금', '토'] as const;
+export function weekdayLabel(dow: number): string {
+  return WEEKDAY_KO[dow]!;
+}
+
+/** [C1] "11.17 ~ 11.23" */
+export function formatWeekRange(start: LocalDate): string {
+  const end = addDays(start, 6);
+  return `${parse(start).format('M.D')} ~ ${parse(end).format('M.D')}`;
+}
+
+/** [C2] "2026년 11월" */
+export function formatYearMonth(ym: YearMonth): string {
+  return dayjs.utc(`${ym}-01`, FMT).format('YYYY년 M월');
+}
+
+/** [C3] 최장 연속 기록: 날짜가 끊김 없이 이어진 가장 긴 구간의 길이 */
+export function longestStreak(dates: LocalDate[]): number {
+  const sorted = [...new Set(dates)].sort();
+  let best = 0;
+  let run = 0;
+  let prev: LocalDate | null = null;
+  for (const d of sorted) {
+    run = prev && diffDays(d, prev) === 1 ? run + 1 : 1;
+    best = Math.max(best, run);
+    prev = d;
+  }
+  return best;
+}
+
 /** [E1] "2026년 11월 19일" */
 export function formatFullDate(d: LocalDate): string {
   return parse(d).format('YYYY년 M월 D일');

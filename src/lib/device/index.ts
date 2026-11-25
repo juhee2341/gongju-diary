@@ -47,6 +47,14 @@ export const drafts = {
   },
 };
 
+/** [C1~C3] 일기장별 마지막으로 본 보관 탭 */
+export type ArchiveTab = 'week' | 'month' | 'year';
+const archiveTabKey = (diaryId: string) => `gongju.archiveTab.${diaryId}`;
+export const archiveTab = {
+  get: async (diaryId: string): Promise<ArchiveTab> => (await getJSON<ArchiveTab>(archiveTabKey(diaryId))) ?? 'week',
+  set: (diaryId: string, t: ArchiveTab) => setJSON(archiveTabKey(diaryId), t).catch(() => undefined),
+};
+
 export const deviceStore = {
   /** [A3] 온보딩 완료 기록 */
   isOnboardingDone: async () => (await getJSON<boolean>(KEYS.onboardingDone)) === true,

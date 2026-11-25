@@ -1,7 +1,6 @@
 /**
  * [D1] 일기 작성/수정
  * params: diaryId(필수), date(작성 모드 기본 날짜, 없으면 오늘), entryId(수정 모드)
- * TODO(4단계 #3) 저장 후 C4(그 날짜)로 이동 — 지금은 D2로 이동
  * TODO(8단계 #7) 함께 쓰기 첫 저장이면 알림 권한 요청
  */
 import * as Clipboard from 'expo-clipboard';
@@ -215,10 +214,10 @@ export default function WriteEntry() {
   const finish = async (savedId: string) => {
     await drafts.remove(diaryId, date);
     await invalidate(diaryId, savedId);
-    // 수정은 원래 보던 D2로 돌아가고, 새 일기는 D2를 연다
+    // 수정은 원래 보던 D2로 돌아가고, 새 일기는 그 날짜의 C4로 간다
     if (isEdit) return router.back();
     router.dismiss();
-    router.push({ pathname: '/home/entry/[id]', params: { id: savedId } });
+    router.push({ pathname: '/home/diary/[id]/day/[date]', params: { id: diaryId, date, justSaved: '1' } });
   };
 
   const handleSaveError = async (e: unknown) => {
