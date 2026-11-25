@@ -1,0 +1,234 @@
+/**
+ * 모든 화면 문구와 서버 오류 코드 문구. 문구는 이 파일에서만 정의한다.
+ * 기준: docs/spec.md, docs/screens.md
+ */
+import type { Emotion } from '@/constants/emotions';
+import type { Reaction } from '@/constants/reactions';
+import { MIN_AGE } from '@/constants/policy';
+
+/** "{N}자까지" 같은 자리표시자 치환 */
+export function fill(template: string, vars: Record<string, string | number>): string {
+  return template.replace(/\{([^{}]+)\}/g, (m, k: string) => (k in vars ? String(vars[k]) : m));
+}
+
+/** 서버 오류 코드 — docs/spec.md '서버 오류 코드' */
+export const errorCopy = {
+  not_member: '사라진 일기장이에요',
+  entry_not_found: '삭제된 일기예요',
+  entry_exists: '이미 이날 일기가 있어요',
+  date_out_of_range: '쓸 수 있는 기간이 지났어요',
+  device_date_invalid: '기기 날짜를 확인해 주세요',
+  too_short: '5자 이상 써 주세요',
+  code_invalid: '코드를 다시 확인해 주세요',
+  code_locked: '{N}초 후에 다시 시도해 주세요',
+  already_member: '이미 함께하고 있어요',
+  request_pending: '승인을 기다리고 있어요',
+  diary_full: '자리가 꽉 찼어요',
+  reject_cooldown: '조금 뒤에 다시 요청할 수 있어요',
+  request_closed: '이미 처리된 요청이에요',
+  rate_limited: '조금 천천히 남겨 주세요',
+  already_reported: '이미 신고했어요',
+  banned_word: '사용할 수 없는 단어가 있어요',
+  suspended: '이용이 제한된 계정이에요',
+  network: '잠시 후 다시 시도해 주세요',
+  timeout: '잠시 후 다시 시도해 주세요',
+} as const;
+export type ErrorCode = keyof typeof errorCopy;
+
+export const emotionLabels: Record<Emotion, string> = {
+  happy: '행복해',
+  excited: '설레',
+  proud: '뿌듯해',
+  love: '사랑스러워',
+  calm: '평온해',
+  soso: '그저 그래',
+  tired: '피곤해',
+  sad: '슬퍼',
+  angry: '화나',
+  worried: '걱정돼',
+};
+
+export const reactionLabels: Record<Reaction, string> = {
+  heart: '좋아',
+  crown: '최고야',
+  laugh: '웃겨',
+  hug: '토닥토닥',
+  wow: '놀라워',
+  sparkle: '공감해',
+};
+
+export const ko = {
+  appName: '공주일기',
+  common: {
+    cancel: '취소',
+    back: '뒤로',
+    retry: '다시 시도',
+    contact: '문의하기',
+    close: '닫기',
+    offline: '인터넷 연결이 없어요',
+    maxChars: '{N}자까지 쓸 수 있어요',
+    leftAuthor: '떠난 공주',
+    discardTitle: '작성 중인 내용이 사라져요',
+    discardLeave: '나가기',
+    discardStay: '계속 쓰기',
+    openSettings: '설정 열기',
+  },
+  tabs: {
+    home: '홈',
+    notifications: '알림',
+    settings: '설정',
+  },
+  splash: {
+    // [A1]
+    loadingLabel: '불러오는 중',
+    firstRunOffline: '처음 시작할 땐 인터넷이 필요해요',
+    genericError: '잠시 후 다시 시도해 주세요',
+    forceUpdateTitle: '새 버전이 나왔어요',
+    forceUpdateButton: '업데이트하기',
+  },
+  onboarding: {
+    // [A3]
+    skip: '건너뛰기',
+    next: '다음',
+    start: '시작하기',
+    restoreAccount: '이전 계정 불러오기',
+    restoreNoAccount: '연결된 계정이 없어요',
+    restoreComingSoon: '계정 연결은 준비 중이에요',
+    pages: [
+      { title: '하루 한 편, 짧게 써요', body: '사진 3장과 300자로 오늘을 남겨요' },
+      { title: '내가 써야 친구 일기가 열려요', body: '오늘 내 일기를 쓰면 친구들의 오늘이 열려요' },
+      { title: '혼자도, 친구랑도 쓸 수 있어요', body: '나만의 일기장도, 친구들과의 교환일기도' },
+    ],
+    pageLabel: '{N}번째 소개',
+  },
+  terms: {
+    // [A3] 약관 동의 바텀시트
+    title: '시작하기 전에 확인해 주세요',
+    agreeAll: '전체 동의',
+    age: `[필수] 만 ${MIN_AGE}세 이상이에요`,
+    service: '[필수] 이용약관',
+    privacy: '[필수] 개인정보 수집·이용',
+    view: '보기',
+    submit: '동의하고 시작',
+    ageRequired: `공주일기는 만 ${MIN_AGE}세 이상부터 쓸 수 있어요`,
+    reconsentTitle: '약관이 바뀌었어요',
+    serviceDoc: '이용약관 본문은 출시 전에 게시돼요.',
+    privacyDoc: '개인정보처리방침 본문은 출시 전에 게시돼요.',
+  },
+  profile: {
+    // [A4]
+    createTitle: '나를 소개해 주세요',
+    editTitle: '프로필 고치기',
+    emoji: '이모지',
+    photo: '사진',
+    pickPhoto: '사진 고르기',
+    nicknamePlaceholder: '닉네임',
+    counter: '{N}/{MAX}',
+    done: '완료',
+    photoPermissionDenied: '사진 접근을 허용하면 사진을 쓸 수 있어요',
+    photoUploadFailed: '사진은 설정에서 다시 바꿀 수 있어요',
+    avatarLabel: '아바타 {E}',
+    uploading: '사진 올리는 중',
+  },
+  diary: {
+    defaultSoloName: '나의 공주일기',
+    solo: '혼자 쓰기',
+    shared: '함께 쓰기',
+    soloDesc: '나만 보는 일기장',
+    sharedDesc: '최대 10명이 함께 써요',
+    lateWindow: '늦게 쓰기 허용',
+    lateWindowDesc: '이 기간이 지나면 안 쓴 사람도 일기를 볼 수 있어요',
+    lateWindowOption: '{N}일',
+    namePlaceholder: '일기장 이름',
+    coverLabel: '커버 색상',
+    coverOption: '커버 색상 {N}번',
+    modeLabel: '쓰기 방식',
+  },
+  home: {
+    // [B1]
+    greeting: '안녕, {닉네임}님',
+    wroteToday: '오늘 썼어요',
+    notYet: '아직이에요',
+    todayCount: '오늘 {N}명 썼어요',
+    requestCount: '요청 {N}',
+    moreMembers: '+{N}',
+    ownerLabel: '주인',
+    empty: '첫 일기장을 만들어 볼까요?',
+    create: '일기장 만들기',
+    join: '초대 코드로 참여',
+    search: '일기장 검색',
+    searchPlaceholder: '일기장 이름',
+    togetherTitle: '친구와 함께 쓰면 더 재밌어요',
+    togetherCreate: '만들기',
+    togetherJoin: '참여하기',
+    pin: '상단에 고정',
+    unpin: '고정 해제',
+    openSettings: '일기장 설정',
+    profileButton: '내 설정',
+    joinComingSoon: '초대 코드 참여는 다음 단계에서 열려요',
+    writeComingSoon: '일기 쓰기는 다음 단계에서 열려요',
+  },
+  create: {
+    // [B2]
+    title: '새 일기장',
+    submit: '만들기',
+  },
+  invite: {
+    // [B2, E1] 초대 공유 바텀시트·코드 카드
+    title: '친구를 초대해요',
+    desc: '이 코드를 알려 주면 참여 요청을 보낼 수 있어요',
+    copy: '코드 복사',
+    copyShort: '복사',
+    copied: '코드를 복사했어요',
+    share: '공유하기',
+    later: '나중에',
+    shareMessage: '공주일기에서 같이 일기 써요! 초대 코드 {코드} {링크}',
+    regenerate: '새 코드 만들기',
+    regenerateTitle: '새 코드를 만들까요?',
+    regenerateDesc: '지금 코드는 더 이상 쓸 수 없어요',
+    regenerateOk: '새로 만들기',
+  },
+  diarySettings: {
+    // [E1]
+    title: '일기장 설정',
+    edit: '편집',
+    editTitle: '일기장 꾸미기',
+    save: '저장',
+    mode: '쓰기 방식',
+    createdDate: '만든 날',
+    owner: '주인',
+    readOnly: '주인만 바꿀 수 있어요',
+    inviteCode: '초대 코드',
+    members: '멤버 {N}/{MAX}',
+    convert: '함께 쓰기로 바꾸기',
+    convertTitle: '함께 쓰기로 바꿀까요?',
+    convertDesc: '함께 쓰기는 혼자 쓰기로 되돌릴 수 없어요',
+    convertOk: '바꾸기',
+    notify: '이 일기장 알림 받기',
+    leave: '일기장 나가기',
+    shrinkTitle: '늦게 쓰기 기간을 줄일까요?',
+    shrinkDesc: '지난 며칠의 일기가 바로 모두에게 공개돼요',
+    growTitle: '늦게 쓰기 기간을 늘릴까요?',
+    growDesc: '이미 공개된 날짜의 일기는 계속 공개돼요',
+    change: '바꾸기',
+    membersComingSoon: '멤버 관리는 다음 단계에서 열려요',
+    leaveComingSoon: '일기장 나가기는 다음 단계에서 열려요',
+  },
+  diaryMain: {
+    // [C1] 4단계에서 채움
+    placeholder: '주간 보기는 다음 단계에서 만들어요',
+    settings: '일기장 설정',
+  },
+  notifications: {
+    placeholder: '아직 알림이 없어요',
+  },
+  settings: {
+    placeholder: '설정은 다음 단계에서 만들어요',
+    editProfile: '프로필 수정',
+    themeMode: '화면 모드',
+    themeModes: { system: '시스템', light: '라이트', dark: '다크' },
+  },
+  dev: {
+    supabaseMissing: 'EXPO_PUBLIC_SUPABASE_URL / EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY가 .env에 없어요',
+  },
+} as const;

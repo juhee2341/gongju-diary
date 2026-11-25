@@ -1,0 +1,19 @@
+# [서버] KEEPALIVE: Supabase 무료 플랜 7일 미사용 일시정지 방지 (기술 검증 7번)
+# 저장소 Secrets에 SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY를 등록한다.
+name: keepalive
+
+on:
+  schedule:
+    - cron: '0 0 */3 * *' # 3일마다 (UTC 00:00)
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Supabase REST 핑
+        run: |
+          curl --fail --silent --show-error --max-time 30 \
+            "${{ secrets.SUPABASE_URL }}/rest/v1/app_config?select=key&limit=1" \
+            -H "apikey: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}"
