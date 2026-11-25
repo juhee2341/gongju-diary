@@ -20,6 +20,8 @@ function RootStack() {
         <Stack.Screen name="(tabs)" options={{ gestureEnabled: false }} />
         <Stack.Screen name="diary/new" options={{ presentation: 'modal' }} />
         <Stack.Screen name="entry/write" options={{ presentation: 'modal', gestureEnabled: false }} />
+        <Stack.Screen name="join/index" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="join/[code]" options={{ animation: 'none' }} />
       </Stack>
       <OfflineBanner />
     </>

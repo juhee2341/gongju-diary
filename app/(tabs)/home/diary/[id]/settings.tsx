@@ -204,7 +204,7 @@ export default function DiarySettings() {
           label={fill(ko.diarySettings.members, { N: diary.member_count, MAX: MAX_MEMBERS })}
           dot={isOwner && diary.pending_requests > 0}
           value="›"
-          onPress={() => toast(ko.diarySettings.membersComingSoon)}
+          onPress={() => router.push({ pathname: '/home/diary/[id]/members', params: { id } })}
         />
         {!diary.is_shared && isOwner && (
           <SheetRow label={ko.diarySettings.convert} value="›" onPress={() => setConvertOpen(true)} />

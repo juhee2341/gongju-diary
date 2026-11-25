@@ -84,7 +84,7 @@ export default function DiaryMain() {
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel={ko.diaryMain.members}
-                  onPress={() => toast(ko.diarySettings.membersComingSoon)}
+                  onPress={() => router.push({ pathname: '/home/diary/[id]/members', params: { id } })}
                   style={styles.avatars}
                 >
                   {shown.map((m) => (
