@@ -8,7 +8,7 @@ Supabase dev 프로젝트(`gongju-diary-dev`, 서울)는 만들었고, 실기기
 | --- | --- | --- | --- | --- |
 | 1 | 익명 → 구글 linkIdentity, 다른 기기에서 같은 사용자 | 대기 | dev 프로젝트에 익명 로그인·수동 연결 켬(`supabase config push`), 실서버에서 익명 가입 → complete_profile 흐름 확인 | dev 프로젝트에 구글 OAuth 등록 → 기기 A에서 익명 가입 후 `linkIdentity({ provider: 'google' })` → 기기 B에서 구글 로그인 → `auth.uid()`가 같은지 |
 | 2 | iOS 애플 로그인으로 익명 계정 연결 | 대기 | 애플 개발자 계정 필요 | `expo-apple-authentication`으로 ID 토큰 받기 → `linkIdentity`가 네이티브 ID 토큰을 받는지 확인. 안 되면 `signInWithIdToken` 후 데이터 이전 방식으로 기획 수정 |
-| 3 | Storage 읽기 정책에서 경로의 entry_id로 can_view_entry 호출 | 부분 확인 | dev 프로젝트(gongju-diary-dev)에서 Storage API로 avatars 정책 동작 확인: 본인 경로 업로드 성공, 남의 경로 업로드는 RLS로 거부, 다른 사용자 읽기 성공. 경로에서 entry_id를 꺼내 함수에 넘기는 정책(`split_part(name, '/', 2)::uuid`)은 6단계에서 작성 | dev 프로젝트에서 실제 Storage API(`createSignedUrl`, `download`)로 잠긴/열린 일기 사진 접근 비교 |
+| 3 | Storage 읽기 정책에서 경로의 entry_id로 can_view_entry 호출 | **완료** | 2026-11-25 dev 프로젝트에서 확인. `entry_photo_readable(name)`이 `split_part(name, '/', 2)::uuid`로 entry_id를 꺼내 `can_view_entry`를 호출. 친구 일기 사진의 서명 URL은 내가 그날 쓰기 전에는 거부, 쓰고 나면 발급(`supabase/tests/live` 6단계) | 없음 — spec 변경 불필요 |
 | 4 | 재인코딩한 JPEG에 위치 정보가 남지 않는지 | 대기 | `src/lib/image`가 `expo-image-manipulator`로 JPEG 재인코딩하고, picker에 `exif: false` | 위치 정보가 있는 사진을 실기기에서 골라 처리 → 결과 파일을 PC로 옮겨 `exiftool`로 GPS 태그 확인(iOS·안드로이드 각각) |
 | 5 | Hermes에서 Intl.Segmenter | 대기(대비 완료) | `src/lib/text`가 `Intl.Segmenter`가 있으면 쓰고, 없으면 자체 분리기로 대체. 대체 분리기는 ZWJ 이모지·피부색·국기·키캡·결합 문자 테스트 통과 | 개발 빌드에서 `hasIntlSegmenter` 값을 출력. false면 대체 분리기를 유지하고, 한계(드문 결합 문자)는 서버 상한으로 방어 |
 | 6 | pg_cron 30분 → Edge Function → Expo Push | 대기 | 8단계 범위 | dev 프로젝트에서 `pg_cron` + `pg_net`으로 Edge Function 호출 → 실기기 푸시 수신 |

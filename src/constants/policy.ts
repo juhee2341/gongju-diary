@@ -202,3 +202,7 @@ export const DAY_CARD_LINES = 3;
 
 /** [C3] 미니 달력 감정 점 지름 */
 export const YEAR_DOT_SIZE = 6;
+
+/** [C4] 저장 직후 카드가 하나씩 열리는 간격·길이(ms) */
+export const UNLOCK_STAGGER_MS = 180;
+export const UNLOCK_DURATION_MS = 420;
