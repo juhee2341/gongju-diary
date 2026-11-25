@@ -1,0 +1,34 @@
+# PR·main 푸시마다 타입 체크, 단위 테스트, 마이그레이션/RLS 테스트(PGlite), 앱 번들 생성 확인
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: 타입 체크
+        run: pnpm typecheck
+      - name: 단위·DB 테스트
+        run: pnpm test
+      - name: Android 번들 생성
+        run: pnpm exec expo export --platform android --output-dir dist-ci
+        env:
+          CI: 1
+          EXPO_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ci-placeholder

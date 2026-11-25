@@ -45,7 +45,9 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "lint": "expo lint",
-    "go": "expo start --go"
+    "go": "expo start --go",
+    "test:live": "vitest run --config vitest.live.config.mts"
   },
-  "private": true
+  "private": true,
+  "packageManager": "pnpm@10.33.3"
 }
