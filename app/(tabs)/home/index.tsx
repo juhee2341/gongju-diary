@@ -15,6 +15,7 @@ import { useToast } from '@/components/Toast';
 import { HOME_AVATAR_SIZE, HOME_SEARCH_THRESHOLD, MIN_TOUCH } from '@/constants/policy';
 import { errorCopy, fill, ko } from '@/copy/ko';
 import { useMyDiaries, useSetMemberFlags, type MyDiary } from '@/features/diary/api';
+import { useMyJoinRequests } from '@/features/sharing/api';
 import { DiaryCard } from '@/features/diary/DiaryCard';
 import { useAvatarUri, useMyProfile } from '@/features/profile/useMyProfile';
 import { useMyUserId } from '@/hooks/useMyUserId';
@@ -35,6 +36,8 @@ export default function Home() {
   const avatarUri = useAvatarUri(profile.data?.avatar_type === 'photo' ? profile.data.avatar_path : null);
   const diaries = useMyDiaries();
   const flags = useSetMemberFlags();
+  const myRequests = useMyJoinRequests();
+  const pendingCount = (myRequests.data ?? []).filter((r) => r.status === 'pending').length;
 
   const [menuFor, setMenuFor] = useState<MyDiary | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -49,7 +52,7 @@ export default function Home() {
   const hasShared = all.some((d) => d.is_shared);
 
   const openDiary = (d: MyDiary) => router.push({ pathname: '/home/diary/[id]', params: { id: d.id } });
-  const joinComingSoon = () => toast(ko.home.joinComingSoon);
+  const goJoin = () => (online ? router.push('/join') : toast(ko.common.offline));
   const goCreate = () => (online ? router.push('/diary/new') : toast(ko.common.offline));
 
   const togglePin = async (d: MyDiary) => {
@@ -106,12 +109,30 @@ export default function Home() {
         />
       )}
 
+      {pendingCount > 0 && (
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => router.push('/home/requests')}
+          style={[styles.band, { backgroundColor: colors.primarySoft }]}
+        >
+          <Text style={{ color: colors.primary, fontWeight: '700' }}>{fill(ko.requests.band, { N: pendingCount })}</Text>
+          <Text style={{ color: colors.primary }}>›</Text>
+        </Pressable>
+      )}
+
       <FlatList
         data={list}
         keyExtractor={(d) => d.id}
         contentContainerStyle={[styles.list, list.length === 0 && styles.listEmpty]}
         refreshControl={
-          <RefreshControl refreshing={diaries.isRefetching} onRefresh={() => void diaries.refetch()} tintColor={colors.primary} />
+          <RefreshControl
+            refreshing={diaries.isRefetching}
+            onRefresh={() => {
+              void diaries.refetch();
+              void myRequests.refetch();
+            }}
+            tintColor={colors.primary}
+          />
         }
         renderItem={({ item }) => (
           <DiaryCard
@@ -146,7 +167,7 @@ export default function Home() {
               <Text style={[styles.togetherTitle, { color: colors.text }]}>{ko.home.togetherTitle}</Text>
               <View style={styles.row}>
                 <Button label={ko.home.togetherCreate} style={styles.flex} onPress={goCreate} />
-                <Button label={ko.home.togetherJoin} variant="soft" style={styles.flex} onPress={joinComingSoon} />
+                <Button label={ko.home.togetherJoin} variant="soft" style={styles.flex} onPress={goJoin} />
               </View>
             </View>
           ) : undefined
@@ -157,7 +178,7 @@ export default function Home() {
         <Button label={ko.home.create} style={styles.flex} onPress={goCreate} blocked={!online} onBlockedPress={() => toast(ko.common.offline)} />
         <Pressable
           accessibilityRole="button"
-          onPress={joinComingSoon}
+          onPress={goJoin}
           style={[styles.outline, { borderColor: colors.primary }]}
         >
           <Text style={{ color: colors.primary, fontWeight: '700', fontSize: fontSize.body }}>{ko.home.join}</Text>
@@ -185,6 +206,16 @@ export default function Home() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
+  band: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginHorizontal: spacing.xl,
+    marginBottom: spacing.md,
+    paddingHorizontal: spacing.lg,
+    minHeight: MIN_TOUCH,
+    borderRadius: radius.card,
+  },
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.xl, paddingVertical: spacing.lg, gap: spacing.sm },
   headerText: { flex: 1 },
   greeting: { fontSize: fontSize.title + 2, fontWeight: '800' },

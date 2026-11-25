@@ -187,3 +187,48 @@ describe('3단계 [D1][D2]', () => {
     expect(again.error).toBeNull();
   });
 });
+
+describe('5단계 [B3][B4][E2]', () => {
+  let diary = '';
+  let code = '';
+  let c: SupabaseClient;
+  let cId = '';
+
+  beforeAll(async () => {
+    const list = (await a.rpc('my_diaries')).data as Array<{ id: string; is_shared: boolean; invite_code: string; name: string }>;
+    const d = list.find((x) => x.is_shared && x.name === '새 이름')!;
+    diary = d.id;
+    code = d.invite_code;
+    c = mk();
+    cId = (await c.auth.signInAnonymously()).data.user!.id;
+    await c.rpc('complete_profile', profileArgs('공주C', 'Asia/Seoul'));
+  });
+
+  it('코드 찾기 → 요청 → 주인 목록에 보임 → 승인 → 멤버', async () => {
+    const found = (await c.rpc('find_diary_by_code', { p_code: code.toLowerCase() })).data;
+    expect(found).toMatchObject({ status: 'ok', diary_id: diary, owner_nickname: '공주A' });
+    expect((await c.rpc('request_join', { p_code: code })).error).toBeNull();
+    expect((await c.rpc('my_join_requests')).data).toMatchObject([{ diary_id: diary, status: 'pending' }]);
+    expect((await c.from('diaries').select('id').eq('id', diary)).data).toEqual([]);
+
+    const incoming = (await a.rpc('diary_join_requests', { p_diary: diary })).data as Array<{ id: string; user_id: string }>;
+    const req = incoming.find((r) => r.user_id === cId)!;
+    expect((await b.rpc('decide_request', { p_request: req.id, p_approve: true })).error?.message).toBe('not_member');
+    expect((await a.rpc('decide_request', { p_request: req.id, p_approve: true })).error).toBeNull();
+    const mine = (await c.rpc('my_diaries')).data as Array<{ id: string; role: string }>;
+    expect(mine.find((x) => x.id === diary)?.role).toBe('member');
+  });
+
+  it('멤버가 쓴 일기는 주인에게 잠김(작성자·날짜만), 내보내기하면 사라짐', async () => {
+    const { data } = await c.from('user_settings').select('timezone').single();
+    const today = new Intl.DateTimeFormat('en-CA', { timeZone: data!.timezone }).format(new Date());
+    expect((await c.rpc('save_entry', { p_id: crypto.randomUUID(), p_diary: diary, p_date: today, p_emotion: 'sad', p_content: 'C의 비밀 일기', p_photo_paths: [], p_device_today: today })).error).toBeNull();
+    const meta = (await a.rpc('diary_entries_meta', { p_diary: diary, p_from: today, p_to: today })).data as Array<{ author_id: string; viewable: boolean; emotion: string | null }>;
+    expect(meta.find((m) => m.author_id === cId)).toMatchObject({ viewable: false, emotion: null });
+
+    expect((await a.rpc('remove_member', { p_diary: diary, p_user: cId })).error).toBeNull();
+    const after = (await a.rpc('diary_entries_meta', { p_diary: diary, p_from: today, p_to: today })).data as Array<{ author_id: string }>;
+    expect(after.some((m) => m.author_id === cId)).toBe(false);
+    expect(((await c.rpc('my_diaries')).data as Array<{ id: string }>).some((x) => x.id === diary)).toBe(false);
+  });
+});

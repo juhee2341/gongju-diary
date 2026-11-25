@@ -313,3 +313,101 @@ describe('[C1~C4] diary_entries_meta — 4단계', () => {
     expect(row!.members[0]!.joined_date).toBeTruthy();
   });
 });
+
+describe('[B3][B4][E2] 공유 — 5단계', () => {
+  const C = '33333333-3333-3333-3333-333333333333';
+  let diary = '';
+  let code = '';
+  beforeAll(async () => {
+    await db.exec(`insert into auth.users values ('${C}')`);
+    await as(C, completeProfile('공주C', 'Asia/Seoul'));
+    const [d] = await as<{ id: string; invite_code: string }>(A, `select id, invite_code from diaries where is_shared and late_window_days = 7`);
+    diary = d!.id;
+    code = d!.invite_code;
+  });
+
+  it('없는 코드는 code_invalid, 10회째 60초 잠금(T18)', async () => {
+    for (let i = 1; i <= 9; i++) {
+      const [r] = await as<{ f: { status: string } }>(C, `select find_diary_by_code('ZZZZZ${i}') as f`);
+      expect(r!.f.status).toBe('code_invalid');
+    }
+    const [tenth] = await as<{ f: { status: string; locked_seconds: number } }>(C, `select find_diary_by_code('ZZZZZZ') as f`);
+    expect(tenth!.f.status).toBe('code_locked');
+    expect(tenth!.f.locked_seconds).toBeGreaterThan(50);
+    const [still] = await as<{ f: { status: string } }>(C, `select find_diary_by_code('${code}') as f`);
+    expect(still!.f.status).toBe('code_locked');
+    await db.exec(`update code_failures set locked_until = now() - interval '1 second' where user_id = '${C}'`);
+  });
+
+  it('맞는 코드: 소문자도 미리보기, 요청 → 대기 중, 중복 요청 불가', async () => {
+    const [r] = await as<{ f: Record<string, unknown> }>(C, `select find_diary_by_code('${code.toLowerCase()}') as f`);
+    expect(r!.f).toMatchObject({ status: 'ok', diary_id: diary, owner_nickname: '공주A', member_count: 2 });
+    await as(C, `select request_join('${code}')`);
+    const [again] = await as<{ f: { status: string } }>(C, `select find_diary_by_code('${code}') as f`);
+    expect(again!.f.status).toBe('request_pending');
+    await expect(as(C, `select request_join('${code}')`)).rejects.toThrow('request_pending');
+    expect(await as(C, `select name, status from my_join_requests()`)).toEqual([{ name: '우리 일기장', status: 'pending' }]);
+  });
+
+  it('멤버가 아니라 일기장 본문은 못 읽고, 주인만 요청 목록을 본다', async () => {
+    expect(await as(C, `select count(*)::int as n from diaries where id='${diary}'`)).toEqual([{ n: 0 }]);
+    expect((await as(A, `select nickname from diary_join_requests('${diary}')`))).toEqual([{ nickname: '공주C' }]);
+    await expect(as(B, `select * from diary_join_requests('${diary}')`)).rejects.toThrow('not_member');
+    const [cnt] = await as<{ pending_requests: number }>(A, `select pending_requests from my_diaries() where id='${diary}'`);
+    expect(cnt!.pending_requests).toBe(1);
+  });
+
+  it('거절 → 24시간 재요청 불가, 다시 승인 흐름', async () => {
+    const [req] = await as<{ id: string }>(A, `select id from diary_join_requests('${diary}')`);
+    await as(A, `select decide_request('${req!.id}', false)`);
+    await expect(as(A, `select decide_request('${req!.id}', true)`)).rejects.toThrow('request_closed');
+    const [cool] = await as<{ f: { status: string } }>(C, `select find_diary_by_code('${code}') as f`);
+    expect(cool!.f.status).toBe('reject_cooldown');
+    await db.exec(`update join_requests set decided_at = now() - interval '25 hours' where id = '${req!.id}'`);
+    await as(C, `select request_join('${code}')`);
+    const [req2] = await as<{ id: string }>(A, `select id from diary_join_requests('${diary}')`);
+    await as(A, `select decide_request('${req2!.id}', true)`);
+    const [m] = await as<{ role: string; joined_date: string }>(C, `select role, joined_date from diary_members where diary_id='${diary}' and user_id='${C}'`);
+    expect(m!.role).toBe('member');
+    const [already] = await as<{ f: { status: string } }>(C, `select find_diary_by_code('${code}') as f`);
+    expect(already!.f.status).toBe('already_member');
+  });
+
+  it('취소는 요청자만, 대기 중일 때만', async () => {
+    const D = '44444444-4444-4444-4444-444444444444';
+    await db.exec(`insert into auth.users values ('${D}')`);
+    await as(D, completeProfile('공주D', 'Asia/Seoul'));
+    const [r] = await as<{ id: string }>(D, `select request_join('${code}') as id`);
+    await expect(as(C, `select cancel_request('${r!.id}')`)).rejects.toThrow('request_closed');
+    await as(D, `select cancel_request('${r!.id}')`);
+    await expect(as(D, `select cancel_request('${r!.id}')`)).rejects.toThrow('request_closed');
+  });
+
+  it('T19 10명이면 승인 불가(diary_full)', async () => {
+    const E = '55555555-5555-5555-5555-555555555555';
+    await db.exec(`insert into auth.users values ('${E}')`);
+    await as(E, completeProfile('공주E', 'Asia/Seoul'));
+    const [r] = await as<{ id: string }>(E, `select request_join('${code}') as id`);
+    await db.exec(`update diaries set max_members = 3 where id='${diary}'`);
+    await expect(as(A, `select decide_request('${r!.id}', true)`)).rejects.toThrow('diary_full');
+    const [f] = await as<{ f: { status: string } }>(E, `select find_diary_by_code('${code}') as f`);
+    expect(f!.f.status).toBe('request_pending');
+    await db.exec(`update diaries set max_members = 10 where id='${diary}'`);
+  });
+
+  it('내보내기: 그 사람 일기·열림 기록 삭제, 이전 멤버로 표시', async () => {
+    await as(
+      C,
+      `select save_entry('00000000-0000-4000-8000-0000000000c1'::uuid, '${diary}'::uuid, public.user_today('${C}'), 'happy', 'C가 쓴 일기예요', array['${diary}/00000000-0000-4000-8000-0000000000c1/1.jpg'], public.user_today('${C}'))`,
+    );
+    await expect(as(B, `select remove_member('${diary}', '${C}')`)).rejects.toThrow('not_member');
+    await expect(as(A, `select remove_member('${diary}', '${A}')`)).rejects.toThrow('not_member');
+    const [r] = await as<{ photos: string[] }>(A, `select remove_member('${diary}', '${C}') as photos`);
+    expect(r!.photos).toEqual([`${diary}/00000000-0000-4000-8000-0000000000c1/1.jpg`]);
+    expect(await db.query(`select count(*)::int as n from entries where author_id='${C}' and diary_id='${diary}'`).then((x) => x.rows)).toEqual([{ n: 0 }]);
+    expect(await db.query(`select count(*)::int as n from entry_unlocks where user_id='${C}' and diary_id='${diary}'`).then((x) => x.rows)).toEqual([{ n: 0 }]);
+    await as(C, `select request_join('${code}')`);
+    const reqs = await as<{ nickname: string; former_member: boolean }>(A, `select nickname, former_member from diary_join_requests('${diary}') order by nickname`);
+    expect(reqs).toContainEqual({ nickname: '공주C', former_member: true });
+  });
+});
