@@ -15,6 +15,8 @@ export type EntryMeta = {
   emotion: Emotion | null;
   is_late: boolean | null;
   edited: boolean | null;
+  reaction_count: number | null;
+  comment_count: number | null;
 };
 
 export const archiveKeys = {

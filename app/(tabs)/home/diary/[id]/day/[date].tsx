@@ -2,7 +2,6 @@
  * [C4] 하루 모아보기
  * 배너(내가 안 썼고 작성 가능) → 내 카드 → 멤버 카드(열림/잠김) → "아직 안 쓴 공주들"
  * 카드 순서: 나 → 주인 → 참여순(my_diaries members 순서)
- * TODO(7단계 #6) 카드 하단 리액션 수·댓글 수
  */
 import { Image } from 'expo-image';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
@@ -14,7 +13,7 @@ import { Button } from '@/components/Button';
 import { useToast } from '@/components/Toast';
 import { EMOTION_ICONS } from '@/constants/emotions';
 import { CARD_AVATAR_SIZE, DAY_AVATAR_SIZE, DAY_CARD_LINES, MIN_TOUCH, UNLOCK_DURATION_MS, UNLOCK_STAGGER_MS } from '@/constants/policy';
-import { emotionLabels, ko } from '@/copy/ko';
+import { emotionLabels, fill, ko } from '@/copy/ko';
 import { indexMeta, useEntriesByIds, useEntriesMeta } from '@/features/archive/api';
 import { PeriodBar } from '@/features/archive/PeriodBar';
 import { useDiary, type MemberPreview } from '@/features/diary/api';
@@ -94,7 +93,7 @@ export default function DayView() {
           const e = entries.data?.find((x) => x.id === r.entry_id);
           return r.viewable && r.entry_id ? (
             <UnlockIn key={m.user_id} index={i} active={animate && m.user_id !== myId}>
-              <OpenCard member={m} entry={e} metaEmotion={r.emotion} onPress={() => router.push({ pathname: '/home/entry/[id]', params: { id: r.entry_id! } })} />
+              <OpenCard member={m} entry={e} metaEmotion={r.emotion} reactions={r.reaction_count ?? 0} comments={r.comment_count ?? 0} onPress={() => router.push({ pathname: '/home/entry/[id]', params: { id: r.entry_id! } })} />
             </UnlockIn>
           ) : (
             <LockedCard key={m.user_id} member={m} onPress={() => setLockedFor(m)} />
@@ -157,7 +156,7 @@ function CardHeader({ member, right }: { member: MemberPreview; right?: React.Re
   );
 }
 
-function OpenCard({ member, entry, metaEmotion, onPress }: { member: MemberPreview; entry: Entry | undefined; metaEmotion: Entry['emotion'] | null; onPress: () => void }) {
+function OpenCard({ member, entry, metaEmotion, reactions, comments, onPress }: { member: MemberPreview; entry: Entry | undefined; metaEmotion: Entry['emotion'] | null; reactions: number; comments: number; onPress: () => void }) {
   const { colors } = useTheme();
   const thumbs = usePhotoUrls(entry?.photo_paths ?? [], true);
   const emotion = entry?.emotion ?? metaEmotion;
@@ -192,6 +191,13 @@ function OpenCard({ member, entry, metaEmotion, onPress }: { member: MemberPrevi
           {entry.content}
         </Text>
       ) : null}
+      {(reactions > 0 || comments > 0) && (
+        <Text style={{ color: colors.textSub, fontSize: fontSize.caption }}>
+          {reactions > 0 ? `💗 ${reactions}` : ''}
+          {reactions > 0 && comments > 0 ? '  ·  ' : ''}
+          {comments > 0 ? fill(ko.entry.comments, { N: comments }) : ''}
+        </Text>
+      )}
     </Pressable>
   );
 }

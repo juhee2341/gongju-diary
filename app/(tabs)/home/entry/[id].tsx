@@ -1,7 +1,6 @@
 /**
  * [D2] 일기 상세 — 3단계: 사진 슬라이드, 감정·배지, 본문, 수정·삭제
  * 같은 날 열린 일기 아바타 줄(혼자 쓰기는 숨김), 잠긴 일기로 직접 들어오면 C4로 대체 이동
- * TODO(7단계 #6) 리액션 바, 댓글
  * TODO(10단계 #9) 신고·차단 메뉴
  */
 import { Image } from 'expo-image';
@@ -28,6 +27,8 @@ import { useDiary } from '@/features/diary/api';
 import { indexMeta, useEntriesMeta } from '@/features/archive/api';
 import { MemberAvatar } from '@/features/diary/MemberAvatar';
 import { deleteEntry, useEntry, useEntryStatus, useInvalidateEntries, usePhotoUrls } from '@/features/entry/api';
+import { Comments } from '@/features/entry/Comments';
+import { ReactionBar } from '@/features/entry/ReactionBar';
 import { useAvatarUri } from '@/features/profile/useMyProfile';
 import { useMyUserId } from '@/hooks/useMyUserId';
 import { useToday } from '@/hooks/useToday';
@@ -194,7 +195,8 @@ export default function EntryDetail() {
 
       {e.content ? <Text style={[styles.body, { color: colors.text }]}>{e.content}</Text> : null}
 
-      <Text style={[styles.note, { color: colors.textSub }]}>{ko.entry.reactionsComingSoon}</Text>
+      <ReactionBar entryId={e.id} myId={userId} members={diary?.members ?? []} />
+      <Comments entryId={e.id} entryAuthorId={e.author_id} myId={userId} members={diary?.members ?? []} />
 
       <BottomSheet visible={menuOpen} onClose={() => setMenuOpen(false)}>
         <SheetRow
@@ -235,5 +237,4 @@ const styles = StyleSheet.create({
   emotionLabel: { fontSize: fontSize.body + 1, fontWeight: '700' },
   badge: { borderWidth: 1, borderRadius: radius.chip, paddingHorizontal: spacing.sm, paddingVertical: 2 },
   body: { fontSize: fontSize.body + 1, lineHeight: 26 },
-  note: { fontSize: fontSize.caption, textAlign: 'center', marginTop: spacing.xl },
 });
