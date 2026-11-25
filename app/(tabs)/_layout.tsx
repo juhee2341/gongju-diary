@@ -24,7 +24,12 @@ export default function TabsLayout() {
           name={name}
           options={{
             title: ko.tabs[name],
-            tabBarIcon: ({ focused }) => <Text style={{ opacity: focused ? 1 : 0.5 }}>{ICONS[name]}</Text>,
+            tabBarAccessibilityLabel: ko.tabs[name],
+            tabBarIcon: ({ focused }) => (
+              <Text style={{ opacity: focused ? 1 : 0.5 }} accessibilityElementsHidden importantForAccessibility="no" aria-hidden>
+                {ICONS[name]}
+              </Text>
+            ),
           }}
         />
       ))}

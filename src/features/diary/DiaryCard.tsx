@@ -38,61 +38,61 @@ export function DiaryCard({ diary, onPress, onLongPress, onRibbonPress }: Props)
   const extra = diary.member_count - shown.length;
   const ribbon = diary.wrote_today ? ko.home.wroteToday : ko.home.notYet;
 
+  // 카드 본문과 리본은 서로 겹치지 않는 형제 버튼(버튼 안에 버튼을 넣지 않는다)
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={[diary.name, isOwner ? ko.home.ownerLabel : '', ribbon].filter(Boolean).join(', ')}
-      onPress={onPress}
-      onLongPress={onLongPress}
-      style={({ pressed }) => [
-        styles.card,
-        { backgroundColor: colors.surface, borderColor: colors.border, opacity: pressed ? 0.85 : 1 },
-      ]}
-    >
-      <View style={[styles.band, { backgroundColor: colors.cover[diary.cover_color] }]} />
-      <View style={styles.body}>
-        <View style={styles.titleRow}>
-          <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>
-            {diary.name}
-          </Text>
-          {isOwner && <Text accessibilityElementsHidden>👑</Text>}
-          {diary.pinned && <Text accessibilityElementsHidden>📌</Text>}
-          {isOwner && diary.pending_requests > 0 && (
-            <View style={styles.request}>
-              <View style={[styles.dot, { backgroundColor: colors.primary }]} />
-              <Text style={{ color: colors.primary, fontSize: fontSize.caption, fontWeight: '700' }}>
-                {fill(ko.home.requestCount, { N: diary.pending_requests })}
-              </Text>
-            </View>
-          )}
-        </View>
-
-        <View style={styles.metaRow}>
-          {diary.is_shared ? (
-            <>
-              <View style={styles.avatars}>
-                {shown.map((m) => (
-                  <MemberAvatar key={m.user_id} m={m} />
-                ))}
-                {extra > 0 && (
-                  <Text style={[styles.extra, { color: colors.textSub }]}>{fill(ko.home.moreMembers, { N: extra })}</Text>
-                )}
-              </View>
-              <Text style={[styles.meta, { color: colors.textSub }]}>
-                {fill(ko.home.todayCount, { N: diary.today_count })}
-              </Text>
-            </>
-          ) : (
-            <View style={styles.emotions}>
-              {diary.recent_emotions.slice(0, SOLO_RECENT_EMOTIONS).map((e, i) => (
-                <Text key={i} accessibilityLabel={emotionLabels[e as Emotion]}>
-                  {EMOTION_ICONS[e as Emotion]}
+    <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={[diary.name, isOwner ? ko.home.ownerLabel : '', ribbon].filter(Boolean).join(', ')}
+        onPress={onPress}
+        onLongPress={onLongPress}
+        style={({ pressed }) => [styles.main, { opacity: pressed ? 0.85 : 1 }]}
+      >
+        <View style={[styles.band, { backgroundColor: colors.cover[diary.cover_color] }]} />
+        <View style={styles.body}>
+          <View style={styles.titleRow}>
+            <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>
+              {diary.name}
+            </Text>
+            {isOwner && <Text accessibilityElementsHidden>👑</Text>}
+            {diary.pinned && <Text accessibilityElementsHidden>📌</Text>}
+            {isOwner && diary.pending_requests > 0 && (
+              <View style={styles.request}>
+                <View style={[styles.dot, { backgroundColor: colors.primary }]} />
+                <Text style={{ color: colors.primary, fontSize: fontSize.caption, fontWeight: '700' }}>
+                  {fill(ko.home.requestCount, { N: diary.pending_requests })}
                 </Text>
-              ))}
-            </View>
-          )}
+              </View>
+            )}
+          </View>
+
+          <View style={styles.metaRow}>
+            {diary.is_shared ? (
+              <>
+                <View style={styles.avatars}>
+                  {shown.map((m) => (
+                    <MemberAvatar key={m.user_id} m={m} />
+                  ))}
+                  {extra > 0 && (
+                    <Text style={[styles.extra, { color: colors.textSub }]}>{fill(ko.home.moreMembers, { N: extra })}</Text>
+                  )}
+                </View>
+                <Text style={[styles.meta, { color: colors.textSub }]}>
+                  {fill(ko.home.todayCount, { N: diary.today_count })}
+                </Text>
+              </>
+            ) : (
+              <View style={styles.emotions}>
+                {diary.recent_emotions.slice(0, SOLO_RECENT_EMOTIONS).map((e, i) => (
+                  <Text key={i} accessibilityLabel={emotionLabels[e as Emotion]}>
+                    {EMOTION_ICONS[e as Emotion]}
+                  </Text>
+                ))}
+              </View>
+            )}
+          </View>
         </View>
-      </View>
+      </Pressable>
 
       <Pressable
         accessibilityRole="button"
@@ -105,12 +105,13 @@ export function DiaryCard({ diary, onPress, onLongPress, onRibbonPress }: Props)
           {ribbon}
         </Text>
       </Pressable>
-    </Pressable>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   card: { flexDirection: 'row', borderRadius: radius.card, borderWidth: 1, overflow: 'hidden', minHeight: 96 },
+  main: { flex: 1, flexDirection: 'row' },
   band: { width: spacing.md },
   body: { flex: 1, padding: spacing.lg, gap: spacing.sm, justifyContent: 'center' },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },

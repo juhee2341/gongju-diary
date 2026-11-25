@@ -216,6 +216,7 @@ export default function DiarySettings() {
               value={!diary.muted}
               onValueChange={(v) => void toggleNotify(v)}
               trackColor={{ true: colors.primary, false: colors.border }}
+              thumbColor={diary.muted ? colors.surface : colors.onPrimary}
               accessibilityLabel={ko.diarySettings.notify}
             />
           }

@@ -25,6 +25,13 @@ pnpm exec supabase db push        # supabase/migrations 적용
 
 대시보드 Authentication에서 **Anonymous sign-ins**와 **Manual linking**을 켠다(로컬 설정은 `supabase/config.jsonc`에 반영됨).
 
+### 미리보기 (빌드 도구 없이)
+
+```bash
+pnpm web       # 브라우저에서 보기 (http://localhost:8081). 사진 선택·공유·확인창은 웹에서 다르게 동작
+pnpm go        # 휴대폰 Expo Go 앱으로 QR 스캔 (같은 와이파이, 안 되면 --tunnel)
+```
+
 ### 앱 실행
 
 애플 로그인 등 네이티브 모듈 때문에 Expo Go 대신 개발 빌드를 쓴다.
